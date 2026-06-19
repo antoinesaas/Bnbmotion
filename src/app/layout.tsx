@@ -1,0 +1,48 @@
+import type { Metadata } from "next";
+import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
+const display = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+  weight: ["500", "600", "700", "800"],
+});
+
+export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  title: {
+    default: "BnbMotion — Transformez vos photos en vidéo professionnelle",
+    template: "%s · BnbMotion",
+  },
+  description:
+    "Générez une vidéo promotionnelle cinématographique de votre logement à partir de vos photos, en quelques minutes. Sans vidéaste, sans matériel.",
+  keywords: ["airbnb", "vidéo immobilière", "location courte durée", "host", "vidéo logement"],
+  openGraph: {
+    title: "BnbMotion — Transformez vos photos en vidéo professionnelle",
+    description:
+      "La vidéo qui donne envie de réserver votre logement. Générée par IA à partir de vos photos.",
+    type: "website",
+    locale: "fr_FR",
+  },
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="fr" className={`${inter.variable} ${display.variable}`}>
+      <body className="min-h-screen bg-background font-sans text-foreground antialiased">
+        {children}
+      </body>
+    </html>
+  );
+}
