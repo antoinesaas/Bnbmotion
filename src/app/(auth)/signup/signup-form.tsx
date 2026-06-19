@@ -4,6 +4,7 @@ import { useFormState } from "react-dom";
 import { MailCheck } from "lucide-react";
 import { signup, type AuthState } from "../actions";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -49,10 +50,9 @@ export function SignupForm() {
 
       <div>
         <Label htmlFor="password">Mot de passe</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="new-password"
           required
           minLength={8}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -41,6 +42,7 @@ export const metadata: Metadata = {
     type: "website",
     locale: "fr_FR",
   },
+  verification: { google: "cP9j8P23gzfMF1kEfdenhCmUGTsmIqRWnbNzXH8jYRs" },
 };
 
 export default function RootLayout({
@@ -52,6 +54,7 @@ export default function RootLayout({
     <html lang="fr" className={`${inter.variable} ${display.variable}`}>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
         {children}
+        <Analytics />
       </body>
     </html>
   );

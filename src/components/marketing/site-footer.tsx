@@ -26,8 +26,9 @@ export function SiteFooter() {
             </div>
             <div className="space-y-2">
               <p className="font-semibold text-ink">Légal</p>
-              <span className="block text-muted-foreground">Mentions légales</span>
-              <span className="block text-muted-foreground">Confidentialité</span>
+              <Link href="/mentions-legales" className="block text-muted-foreground hover:text-ink">Mentions légales</Link>
+              <Link href="/cgu" className="block text-muted-foreground hover:text-ink">CGU</Link>
+              <Link href="/confidentialite" className="block text-muted-foreground hover:text-ink">Confidentialité</Link>
             </div>
           </div>
         </div>

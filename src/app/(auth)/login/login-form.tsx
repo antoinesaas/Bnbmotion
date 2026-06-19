@@ -3,6 +3,7 @@
 import { useFormState } from "react-dom";
 import { login, type AuthState } from "../actions";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -29,10 +30,9 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <div>
         <Label htmlFor="password">Mot de passe</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           autoComplete="current-password"
           required
           placeholder="••••••••"
