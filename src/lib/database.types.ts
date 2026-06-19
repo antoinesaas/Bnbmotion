@@ -62,12 +62,14 @@ export type Database = {
       }
       generations: {
         Row: {
+          aspect_ratio: string
           completed_at: string | null
           cost_usd_estimate: number | null
           created_at: string
           credit_consumed: boolean
           error_message: string | null
           external_job_id: string | null
+          generate_audio: boolean
           id: string
           is_free_trial: boolean
           photo_paths: string[]
@@ -76,6 +78,7 @@ export type Database = {
           property_name: string
           provider: string
           requested_seconds: number
+          resolution: string
           status: string
           thumbnail_url: string | null
           updated_at: string
@@ -83,12 +86,14 @@ export type Database = {
           video_path: string | null
         }
         Insert: {
+          aspect_ratio?: string
           completed_at?: string | null
           cost_usd_estimate?: number | null
           created_at?: string
           credit_consumed?: boolean
           error_message?: string | null
           external_job_id?: string | null
+          generate_audio?: boolean
           id?: string
           is_free_trial?: boolean
           photo_paths?: string[]
@@ -97,6 +102,7 @@ export type Database = {
           property_name: string
           provider?: string
           requested_seconds?: number
+          resolution?: string
           status?: string
           thumbnail_url?: string | null
           updated_at?: string
@@ -104,12 +110,14 @@ export type Database = {
           video_path?: string | null
         }
         Update: {
+          aspect_ratio?: string
           completed_at?: string | null
           cost_usd_estimate?: number | null
           created_at?: string
           credit_consumed?: boolean
           error_message?: string | null
           external_job_id?: string | null
+          generate_audio?: boolean
           id?: string
           is_free_trial?: boolean
           photo_paths?: string[]
@@ -118,6 +126,7 @@ export type Database = {
           property_name?: string
           provider?: string
           requested_seconds?: number
+          resolution?: string
           status?: string
           thumbnail_url?: string | null
           updated_at?: string

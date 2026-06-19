@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Sparkles, Film } from "lucide-react";
+import { Sparkles, Film, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NewGenerationForm } from "@/components/dashboard/new-generation-form";
 import { GenerationCard } from "@/components/dashboard/generation-card";
+import { GenerationPoller } from "@/components/dashboard/generation-poller";
 
 export const metadata: Metadata = { title: "Tableau de bord" };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { checkout?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -29,9 +35,43 @@ export default async function DashboardPage() {
 
   const firstName = profile?.full_name?.trim().split(" ")[0] || "👋";
   const credits = profile?.credits_remaining ?? 0;
+  const subscribed = !!profile?.plan && profile.plan !== "free";
+  const gens = generations ?? [];
+
+  // URLs signées pour les vidéos terminées et accessibles (abonné, ou non-essai)
+  const videoUrls: Record<string, string> = {};
+  const toSign = gens.filter(
+    (g) => g.status === "completed" && g.video_path && (!g.is_free_trial || subscribed),
+  );
+  if (toSign.length > 0) {
+    try {
+      const admin = createAdminClient();
+      await Promise.all(
+        toSign.map(async (g) => {
+          const { data } = await admin.storage
+            .from("videos")
+            .createSignedUrl(g.video_path as string, 3600);
+          if (data?.signedUrl) videoUrls[g.id] = data.signedUrl;
+        }),
+      );
+    } catch (e) {
+      console.error("Signature des vidéos impossible (clé service_role ?) :", e);
+    }
+  }
+
+  const activeIds = gens.filter((g) => g.status === "pending" || g.status === "processing").map((g) => g.id);
 
   return (
     <div className="space-y-10">
+      <GenerationPoller activeIds={activeIds} />
+
+      {searchParams.checkout === "success" && (
+        <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          <CheckCircle2 className="h-5 w-5 shrink-0" />
+          Paiement réussi ! Vos crédits sont ajoutés à votre compte.
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold text-ink">Bonjour {firstName}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -66,10 +106,10 @@ export default async function DashboardPage() {
       <section className="space-y-4">
         <h2 className="font-semibold text-ink">Vos générations</h2>
 
-        {generations && generations.length > 0 ? (
-          <div className="space-y-3">
-            {generations.map((g) => (
-              <GenerationCard key={g.id} generation={g} />
+        {gens.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {gens.map((g) => (
+              <GenerationCard key={g.id} generation={g} videoUrl={videoUrls[g.id]} />
             ))}
           </div>
         ) : (

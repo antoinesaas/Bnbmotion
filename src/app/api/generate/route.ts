@@ -2,29 +2,24 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildVideoPrompt } from "@/lib/prompt";
-import { UPLOAD } from "@/lib/constants";
+import { createSeedanceTask } from "@/lib/seedance";
+import { UPLOAD, getRenderParams } from "@/lib/constants";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 /**
- * Crée une génération vidéo.
- *
- * Flux : le client a déjà uploadé les photos dans le bucket `listings`
- * (dossier de l'utilisateur). On valide, on crée la ligne `generations`,
- * puis on RÉSERVE 1 crédit (consume_credit). Le crédit sera remboursé
- * automatiquement si la génération échoue (Phase génération vidéo).
- *
- * NOTE : l'appel effectif à Seedance + le suivi de statut seront branchés
- * dans la phase génération. Pour l'instant la génération reste en `pending`.
+ * Lance une génération vidéo Seedance (kie.ai).
+ * Flux : valide -> crée la génération (pending) -> RÉSERVE 1 crédit ->
+ * crée la tâche kie.ai (image phare signée + prompt) -> passe en `processing`.
+ * Le crédit est remboursé automatiquement si la génération échoue.
  */
 export async function POST(req: Request) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
-  }
+  if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
   let body: { propertyName?: string; photoPaths?: string[] };
   try {
@@ -45,7 +40,6 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  // Sécurité : toutes les photos doivent appartenir au dossier de l'utilisateur.
   if (!photoPaths.every((p) => typeof p === "string" && p.startsWith(`${user.id}/`))) {
     return NextResponse.json({ error: "Photos invalides." }, { status: 400 });
   }
@@ -63,7 +57,7 @@ export async function POST(req: Request) {
 
   const { data: profile, error: profileError } = await admin
     .from("profiles")
-    .select("credits_remaining, plan, max_video_seconds")
+    .select("credits_remaining, plan")
     .eq("id", user.id)
     .single();
 
@@ -71,19 +65,24 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
   }
   if (profile.credits_remaining < 1) {
-    return NextResponse.json(
-      { error: "Crédits insuffisants.", code: "no_credits" },
-      { status: 402 },
-    );
+    return NextResponse.json({ error: "Crédits insuffisants.", code: "no_credits" }, { status: 402 });
   }
 
-  const seconds = profile.max_video_seconds ?? 10;
+  const render = getRenderParams(profile.plan);
   const isFreeTrial = profile.plan === "free";
   const prompt = buildVideoPrompt({
     propertyName,
-    seconds,
+    seconds: render.seconds,
     premium: profile.plan === "agency",
   });
+
+  // URL signée de la photo phare (kie.ai doit pouvoir la télécharger)
+  const { data: signed, error: signErr } = await admin.storage
+    .from("listings")
+    .createSignedUrl(photoPaths[0], 3600);
+  if (signErr || !signed?.signedUrl) {
+    return NextResponse.json({ error: "Impossible de préparer la photo." }, { status: 500 });
+  }
 
   // 1) Créer la génération (pending)
   const { data: generation, error: insertError } = await admin
@@ -93,7 +92,10 @@ export async function POST(req: Request) {
       property_name: propertyName,
       photo_paths: photoPaths,
       status: "pending",
-      requested_seconds: seconds,
+      requested_seconds: render.seconds,
+      resolution: render.resolution,
+      aspect_ratio: render.aspectRatio,
+      generate_audio: render.audio,
       is_free_trial: isFreeTrial,
       prompt,
     })
@@ -101,28 +103,60 @@ export async function POST(req: Request) {
     .single();
 
   if (insertError || !generation) {
-    console.error("Erreur création génération:", insertError);
+    console.error("Création génération échouée:", insertError);
     return NextResponse.json({ error: "Impossible de créer la génération." }, { status: 500 });
   }
 
-  // 2) Réserver 1 crédit (remboursé automatiquement en cas d'échec)
+  // 2) Réserver 1 crédit
   const { error: creditError } = await admin.rpc("consume_credit", {
     p_generation_id: generation.id,
   });
-
   if (creditError) {
     await admin
       .from("generations")
       .update({ status: "failed", error_message: "Crédits insuffisants." })
       .eq("id", generation.id);
-    return NextResponse.json(
-      { error: "Crédits insuffisants.", code: "no_credits" },
-      { status: 402 },
-    );
+    return NextResponse.json({ error: "Crédits insuffisants.", code: "no_credits" }, { status: 402 });
   }
 
-  // 3) [Phase génération] Lancer Seedance ici, passer en `processing`,
-  //    stocker external_job_id, puis suivre le statut (polling/webhook).
+  // 3) Lancer la tâche Seedance
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const callbackUrl = siteUrl.startsWith("https://")
+    ? `${siteUrl}/api/webhooks/seedance`
+    : undefined;
 
-  return NextResponse.json({ id: generation.id, status: "pending" });
+  try {
+    const taskId = await createSeedanceTask({
+      prompt,
+      imageUrls: [signed.signedUrl],
+      aspectRatio: render.aspectRatio,
+      resolution: render.resolution,
+      duration: render.seconds,
+      generateAudio: render.audio,
+      fixedLens: false,
+      callbackUrl,
+    });
+
+    await admin
+      .from("generations")
+      .update({ external_job_id: taskId, status: "processing" })
+      .eq("id", generation.id);
+
+    return NextResponse.json({ id: generation.id, status: "processing" });
+  } catch (e) {
+    console.error("Seedance createTask échoué:", e);
+    // Échec immédiat -> marquer failed + rembourser le crédit
+    await admin
+      .from("generations")
+      .update({
+        status: "failed",
+        error_message: "Le service de génération est indisponible. Réessayez.",
+      })
+      .eq("id", generation.id);
+    await admin.rpc("refund_credit", { p_generation_id: generation.id });
+    return NextResponse.json(
+      { error: "Le service de génération est momentanément indisponible. Crédit remboursé." },
+      { status: 502 },
+    );
+  }
 }
