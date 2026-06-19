@@ -15,8 +15,18 @@ const display = Plus_Jakarta_Sans({
   weight: ["500", "600", "700", "800"],
 });
 
+function resolveSiteUrl(): URL {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  try {
+    if (raw) return new URL(raw);
+  } catch {
+    /* valeur invalide : on retombe sur localhost */
+  }
+  return new URL("http://localhost:3000");
+}
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
+  metadataBase: resolveSiteUrl(),
   title: {
     default: "BnbMotion — Transformez vos photos en vidéo professionnelle",
     template: "%s · BnbMotion",
