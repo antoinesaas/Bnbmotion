@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildVideoPrompt } from "@/lib/prompt";
+import { buildWalkthroughPrompt } from "@/lib/claude-prompt";
 import { createSeedanceTask } from "@/lib/seedance";
 import { UPLOAD, getRenderParams } from "@/lib/constants";
 
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
 
   const render = getRenderParams(profile.plan);
   const isFreeTrial = profile.plan === "free";
-  const prompt = buildVideoPrompt({
+  const prompt = await buildWalkthroughPrompt({
     propertyName,
     seconds: render.seconds,
     premium: profile.plan === "agency",

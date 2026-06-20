@@ -1,8 +1,5 @@
 import Link from "next/link";
 import {
-  ImagePlus,
-  Wand2,
-  Download,
   PiggyBank,
   TrendingUp,
   Megaphone,
@@ -14,24 +11,7 @@ import {
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { PricingSection } from "@/components/marketing/pricing-section";
-
-const STEPS = [
-  {
-    icon: ImagePlus,
-    title: "Importez vos photos",
-    text: "Glissez 5 à 15 photos de votre logement. Pas besoin de matériel ni de compétences.",
-  },
-  {
-    icon: Wand2,
-    title: "L'IA génère la vidéo",
-    text: "Mouvements de caméra cinématographiques type drone et travelling, ambiance chaleureuse — en quelques minutes.",
-  },
-  {
-    icon: Download,
-    title: "Téléchargez et publiez",
-    text: "Récupérez votre vidéo en MP4, prête pour Airbnb, Booking, Instagram et vos publicités.",
-  },
-];
+import { HowItWorks } from "@/components/marketing/how-it-works";
 
 const BENEFITS = [
   {
@@ -164,19 +144,8 @@ export default function HomePage() {
               De vos photos à une vidéo prête à publier, sans aucune compétence technique.
             </p>
           </div>
-          <div className="mt-14 grid gap-8 md:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <div key={step.title} className="relative">
-                <div className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-coral-50 text-coral-600">
-                  <step.icon className="h-6 w-6" />
-                </div>
-                <span className="absolute right-0 top-0 text-5xl font-bold text-coral-100">
-                  {i + 1}
-                </span>
-                <h3 className="text-lg font-semibold text-ink">{step.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{step.text}</p>
-              </div>
-            ))}
+          <div className="mt-14">
+            <HowItWorks />
           </div>
         </div>
       </section>

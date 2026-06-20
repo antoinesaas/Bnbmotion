@@ -18,8 +18,8 @@ export function buildVideoPrompt({ propertyName, seconds, premium }: PromptOptio
     : "smooth flowing drone-like camera movement, slow elegant travelling and gentle dolly shots";
 
   return [
-    `Cinematic real estate promotional video of "${propertyName}".`,
-    `${movement} gliding through the interior, revealing the living spaces in a natural, continuous motion.`,
+    `Cinematic real estate walkthrough video of "${propertyName}".`,
+    `${movement} gliding forward through the interior room by room, with subtle accelerations and decelerations, revealing the living spaces in a natural, continuous motion.`,
     "Warm inviting natural light, cozy and welcoming atmosphere, soft golden-hour ambiance, realistic shadows and reflections.",
     "High-end Airbnb listing aesthetic, photorealistic, crisp 1080p detail, stable smooth motion, no text, no captions, no watermark, no people.",
     `Duration about ${seconds} seconds.`,
