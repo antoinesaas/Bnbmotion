@@ -15,14 +15,16 @@ export function Logo({
         className,
       )}
     >
-      <span className="grid h-8 w-8 place-items-center rounded-xl bg-coral-500 text-white shadow-glow">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M6 4.5v15a1 1 0 0 0 1.5.87l12-7.5a1 1 0 0 0 0-1.74l-12-7.5A1 1 0 0 0 6 4.5Z" fill="currentColor" />
-        </svg>
-      </span>
-      <span>
-        Bnb<span className="text-coral-500">Motion</span>
-      </span>
+      <svg width="34" height="27" viewBox="0 0 62 48" fill="none" aria-hidden="true">
+        <g stroke="#F65A3B" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+          <path d="M5 19 H18" />
+          <path d="M1 27 H18" />
+          <path d="M5 35 H18" />
+          <path d="M28 43 V23 L41 10 L54 23 V43 Z" />
+        </g>
+        <path d="M35 23 L48 31 L35 39 Z" fill="#F65A3B" />
+      </svg>
+      <span>BnbMotion</span>
     </span>
   );
 

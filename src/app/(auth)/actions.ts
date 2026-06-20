@@ -51,12 +51,9 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
 }
 
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const fullName = String(formData.get("full_name") ?? "").trim();
-  const company = String(formData.get("company") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
-  if (!fullName) return { error: "Veuillez indiquer votre nom." };
   if (!email) return { error: "Veuillez renseigner votre email." };
   if (password.length < 8) return { error: "Le mot de passe doit contenir au moins 8 caractères." };
 
@@ -68,7 +65,6 @@ export async function signup(_prev: AuthState, formData: FormData): Promise<Auth
     email,
     password,
     options: {
-      data: { full_name: fullName, company: company || null },
       emailRedirectTo: `${origin}/auth/callback?next=/dashboard`,
     },
   });

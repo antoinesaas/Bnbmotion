@@ -32,18 +32,6 @@ export function SignupForm() {
   return (
     <form action={formAction} className="space-y-4">
       <div>
-        <Label htmlFor="full_name">Nom complet</Label>
-        <Input id="full_name" name="full_name" type="text" autoComplete="name" required placeholder="Marie Lambert" />
-      </div>
-
-      <div>
-        <Label htmlFor="company">
-          Société <span className="font-normal text-muted-foreground">(optionnel)</span>
-        </Label>
-        <Input id="company" name="company" type="text" autoComplete="organization" placeholder="Ma conciergerie" />
-      </div>
-
-      <div>
         <Label htmlFor="email">Email</Label>
         <Input id="email" name="email" type="email" autoComplete="email" required placeholder="vous@exemple.com" />
       </div>
@@ -69,7 +57,8 @@ export function SignupForm() {
       <SubmitButton className="w-full">Créer mon compte</SubmitButton>
 
       <p className="text-center text-xs text-muted-foreground">
-        En créant un compte, vous acceptez nos conditions d&apos;utilisation.
+        En créant un compte, vous acceptez nos{" "}
+        <a href="/cgu" className="underline hover:text-ink">conditions d&apos;utilisation</a>.
       </p>
     </form>
   );

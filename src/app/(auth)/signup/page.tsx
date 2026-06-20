@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Gift } from "lucide-react";
 import { SignupForm } from "./signup-form";
+import { GoogleSignInButton } from "@/components/ui/google-button";
 
 export const metadata: Metadata = { title: "Créer un compte" };
 
@@ -22,6 +23,12 @@ export default function SignupPage() {
         </span>
       </div>
 
+      <GoogleSignInButton />
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">ou</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
       <SignupForm />
 
       <p className="text-center text-sm text-muted-foreground">

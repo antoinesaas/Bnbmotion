@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
+import { GoogleSignInButton } from "@/components/ui/google-button";
 
 export const metadata: Metadata = { title: "Connexion" };
 
@@ -29,6 +30,12 @@ export default function LoginPage({
         </p>
       )}
 
+      <GoogleSignInButton redirectTo={redirectTo} />
+      <div className="flex items-center gap-3">
+        <span className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">ou</span>
+        <span className="h-px flex-1 bg-border" />
+      </div>
       <LoginForm redirectTo={redirectTo} />
 
       <p className="text-center text-sm text-muted-foreground">
