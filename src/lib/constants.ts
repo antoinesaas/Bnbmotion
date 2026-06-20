@@ -33,7 +33,7 @@ export interface RenderParams {
 
 export const FREE_TIER: RenderParams = {
   seconds: 6,
-  resolution: "720p",
+  resolution: "480p",
   audio: false,
   aspectRatio: "16:9",
 };
