@@ -4,18 +4,21 @@ import { cn } from "@/lib/utils";
 export function Logo({
   className,
   href = "/",
+  light = false,
 }: {
   className?: string;
   href?: string | null;
+  /** Variante pour fond sombre : marque corail + texte blanc. */
+  light?: boolean;
 }) {
-  const content = (
+  const content = light ? (
     <span
       className={cn(
-        "inline-flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-ink",
+        "inline-flex items-center gap-2 font-display text-xl font-extrabold tracking-tight text-white",
         className,
       )}
     >
-      <svg width="34" height="27" viewBox="0 0 62 48" fill="none" aria-hidden="true">
+      <svg width="32" height="25" viewBox="0 0 62 48" fill="none" aria-hidden="true">
         <g stroke="#F65A3B" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
           <path d="M5 19 H18" />
           <path d="M1 27 H18" />
@@ -26,6 +29,8 @@ export function Logo({
       </svg>
       <span>BnbMotion</span>
     </span>
+  ) : (
+    <img src="/logo.png" alt="BnbMotion" className={cn("h-7 w-auto", className)} />
   );
 
   if (href === null) return content;

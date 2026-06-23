@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute inset-0 bg-gradient-to-br from-coral-600/30 via-ink to-ink" />
         <div className="absolute -right-24 -top-24 h-80 w-80 rounded-full bg-coral-500/30 blur-3xl" />
         <div className="relative">
-          <Logo href="/" className="text-white [&_span]:text-white" />
+          <Logo href="/" light />
         </div>
         <div className="relative space-y-8">
           <h2 className="max-w-md font-display text-3xl font-bold leading-tight">
