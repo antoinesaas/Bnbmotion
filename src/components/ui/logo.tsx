@@ -30,7 +30,7 @@ export function Logo({
       <span>BnbMotion</span>
     </span>
   ) : (
-    <img src="/logo.png" alt="BnbMotion" className={cn("h-7 w-auto", className)} />
+    <img src="/logo.png" alt="BnbMotion" className={cn("h-7 w-auto mix-blend-multiply", className)} />
   );
 
   if (href === null) return content;
