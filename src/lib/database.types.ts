@@ -148,8 +148,11 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_refill_enabled: boolean
+          auto_refill_pack: string | null
           company: string | null
           created_at: string
+          credits_expire_at: string | null
           credits_remaining: number
           email: string | null
           full_name: string | null
@@ -160,11 +163,15 @@ export type Database = {
           stripe_subscription_id: string | null
           subscription_current_period_end: string | null
           subscription_status: string | null
+          tier: string
           updated_at: string
         }
         Insert: {
+          auto_refill_enabled?: boolean
+          auto_refill_pack?: string | null
           company?: string | null
           created_at?: string
+          credits_expire_at?: string | null
           credits_remaining?: number
           email?: string | null
           full_name?: string | null
@@ -175,11 +182,15 @@ export type Database = {
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null
+          tier?: string
           updated_at?: string
         }
         Update: {
+          auto_refill_enabled?: boolean
+          auto_refill_pack?: string | null
           company?: string | null
           created_at?: string
+          credits_expire_at?: string | null
           credits_remaining?: number
           email?: string | null
           full_name?: string | null
@@ -190,6 +201,7 @@ export type Database = {
           stripe_subscription_id?: string | null
           subscription_current_period_end?: string | null
           subscription_status?: string | null
+          tier?: string
           updated_at?: string
         }
         Relationships: []
@@ -209,6 +221,7 @@ export type Database = {
         Returns: number
       }
       consume_credit: { Args: { p_generation_id: string }; Returns: number }
+      expire_credits: { Args: Record<PropertyKey, never>; Returns: undefined }
       refund_credit: { Args: { p_generation_id: string }; Returns: number }
     }
     Enums: {

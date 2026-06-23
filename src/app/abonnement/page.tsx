@@ -1,13 +1,23 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, Check, Coins, Sparkles, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Receipt, Sparkles } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Logo } from "@/components/ui/logo";
-import { CREDIT_PACKS, videosFromCredits } from "@/lib/constants";
-import { formatEUR, cn } from "@/lib/utils";
-import { CheckoutButton, PortalButton } from "@/components/billing/checkout-buttons";
+import { formatDateFR, cn } from "@/lib/utils";
+import { PortalButton } from "@/components/billing/checkout-buttons";
+import { AutoRefillToggle } from "@/components/billing/auto-refill-toggle";
+import { BillingTopPanel } from "@/components/billing/billing-top-panel";
 
-export const metadata: Metadata = { title: "Acheter des crédits" };
+export const metadata: Metadata = { title: "Crédits & facturation" };
+
+const REASON_LABELS: Record<string, string> = {
+  signup_bonus: "Bonus de bienvenue",
+  credit_pack: "Achat de crédits",
+  generation: "Génération vidéo",
+  refund: "Remboursement (échec)",
+  auto_refill: "Recharge automatique",
+  admin_adjustment: "Ajustement",
+};
 
 export default async function AbonnementPage({
   searchParams,
@@ -18,21 +28,46 @@ export default async function AbonnementPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const isAuthed = !!user;
 
   let credits = 0;
+  let expiresAt: string | null = null;
+  let tier = "free";
   let hasCustomer = false;
-  const isAuthed = !!user;
+  let autoRefill = false;
+  let autoRefillPack: string | null = null;
+  let transactions: Array<{
+    id: string;
+    reason: string;
+    amount: number;
+    created_at: string;
+  }> = [];
+
   if (user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("credits_remaining, stripe_customer_id")
-      .eq("id", user.id)
-      .single();
-    credits = data?.credits_remaining ?? 0;
-    hasCustomer = !!data?.stripe_customer_id;
+    const [{ data: profile }, { data: txs }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "credits_remaining, credits_expire_at, tier, stripe_customer_id, auto_refill_enabled, auto_refill_pack",
+        )
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("credit_transactions")
+        .select("id, reason, amount, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50),
+    ]);
+    credits = profile?.credits_remaining ?? 0;
+    expiresAt = profile?.credits_expire_at ?? null;
+    tier = profile?.tier ?? "free";
+    hasCustomer = !!profile?.stripe_customer_id;
+    autoRefill = profile?.auto_refill_enabled ?? false;
+    autoRefillPack = profile?.auto_refill_pack ?? null;
+    transactions = txs ?? [];
   }
 
-  const fromCredits = ["credits", "preview", "download"].includes(searchParams.from ?? "");
+  const fromCredits = ["credits", "preview", "download", "4k"].includes(searchParams.from ?? "");
 
   return (
     <div className="min-h-screen bg-background">
@@ -48,116 +83,91 @@ export default async function AbonnementPage({
         </div>
       </header>
 
-      <main className="container-page py-12">
+      <main className="container-page space-y-6 py-10">
         {fromCredits && (
-          <div className="mx-auto mb-8 flex max-w-2xl items-center gap-3 rounded-2xl border border-coral-200 bg-coral-50 px-5 py-4 text-coral-900">
+          <div className="flex items-center gap-3 rounded-2xl border border-coral-200 bg-coral-50 px-5 py-4 text-coral-900">
             <Sparkles className="h-5 w-5 shrink-0 text-coral-600" />
             <p className="text-sm font-medium">
-              Rechargez vos crédits pour générer votre vidéo.
+              {searchParams.from === "4k"
+                ? "La 4K est réservée au pack Pro et au-dessus — choisissez un pack ci-dessous."
+                : "Rechargez vos crédits pour générer votre vidéo."}
             </p>
           </div>
         )}
         {searchParams.checkout === "cancel" && (
-          <div className="mx-auto mb-8 max-w-2xl rounded-xl border border-border bg-card px-5 py-3 text-center text-sm text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card px-5 py-3 text-center text-sm text-muted-foreground">
             Paiement annulé — aucun montant n&apos;a été débité.
           </div>
         )}
 
-        <div className="mx-auto max-w-2xl text-center">
-          <h1 className="text-3xl font-bold text-ink sm:text-4xl">Achetez des crédits</h1>
-          <p className="mt-3 text-muted-foreground">
-            <strong className="text-ink">1 000 crédits = 1 vidéo</strong> Full HD (jusqu&apos;à 10s,
-            7 photos) · une vidéo <strong className="text-ink">4K = 2 000 crédits</strong>. Sans
-            abonnement, payez ce que vous générez.
-          </p>
-          {isAuthed && (
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-coral-50 px-3 py-1 text-sm font-semibold text-coral-700">
-              <Coins className="h-4 w-4" /> Solde : {credits.toLocaleString("fr-FR")} crédits
-            </p>
-          )}
-        </div>
+        {/* Top panels: balance + add credits */}
+        <BillingTopPanel
+          credits={credits}
+          expiresAt={expiresAt}
+          tier={tier}
+          isAuthed={isAuthed}
+        />
 
-        <div className="mx-auto mt-10 grid max-w-5xl gap-6 md:grid-cols-3">
-          {CREDIT_PACKS.map((pack) => (
-            <div
-              key={pack.id}
-              className={cn(
-                "relative flex flex-col rounded-2xl border bg-card p-7 shadow-soft",
-                pack.popular ? "border-coral-400 ring-2 ring-coral-400" : "border-border",
+        {/* Automatic payments toggle */}
+        {isAuthed && <AutoRefillToggle enabled={autoRefill} packId={autoRefillPack} />}
+
+        {/* Transaction history */}
+        {isAuthed && (
+          <div className="card-base overflow-hidden">
+            <div className="flex items-center justify-between border-b border-border px-6 py-4">
+              <h2 className="font-semibold text-ink">Historique des transactions</h2>
+              {hasCustomer && (
+                <PortalButton className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-2 text-xs font-medium text-ink transition hover:bg-muted">
+                  <FileText className="h-3.5 w-3.5" /> Mes factures PDF
+                </PortalButton>
               )}
-            >
-              {pack.popular && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-coral-500 px-3 py-1 text-xs font-semibold text-white">
-                  Le plus populaire
-                </span>
-              )}
-              <h2 className="text-lg font-bold text-ink">{pack.name}</h2>
-              <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-ink">{formatEUR(pack.price)}</span>
-              </div>
-              <p className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-coral-700">
-                <Coins className="h-4 w-4" /> {pack.credits.toLocaleString("fr-FR")} crédits
-              </p>
-              <ul className="mt-5 flex-1 space-y-2.5 text-sm">
-                <li className="flex items-start gap-2 text-ink/80">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-coral-500" />~{" "}
-                  {videosFromCredits(pack.credits)} vidéos Full HD
-                </li>
-                <li className="flex items-start gap-2 text-ink/80">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-coral-500" />
-                  Walkthrough jusqu&apos;à 7 photos
-                </li>
-                <li className="flex items-start gap-2 text-ink/80">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-coral-500" />
-                  4K disponible · sans filigrane
-                </li>
-                <li className="flex items-start gap-2 text-ink/80">
-                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-coral-500" />
-                  Crédits sans expiration
-                </li>
-              </ul>
-              <div className="mt-6">
-                {isAuthed ? (
-                  <CheckoutButton
-                    packId={pack.id}
-                    className={cn(
-                      "h-11 rounded-xl px-5 text-sm font-medium",
-                      pack.popular
-                        ? "bg-coral-500 text-white hover:bg-coral-600"
-                        : "border border-border bg-white text-ink hover:bg-muted",
-                    )}
-                  >
-                    Acheter
-                  </CheckoutButton>
-                ) : (
-                  <Link
-                    href="/signup"
-                    className={cn(
-                      "inline-flex h-11 w-full items-center justify-center rounded-xl px-5 text-sm font-medium",
-                      pack.popular
-                        ? "bg-coral-500 text-white hover:bg-coral-600"
-                        : "border border-border bg-white text-ink hover:bg-muted",
-                    )}
-                  >
-                    Commencer
-                  </Link>
-                )}
-              </div>
             </div>
-          ))}
-        </div>
 
-        {isAuthed && hasCustomer && (
-          <div className="mx-auto mt-8 max-w-5xl text-center">
-            <PortalButton className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-4 py-2.5 text-sm font-medium text-ink hover:bg-muted">
-              <FileText className="h-4 w-4" /> Mes factures (PDF)
-            </PortalButton>
+            {transactions.length > 0 ? (
+              <div>
+                <div className="hidden grid-cols-4 border-b border-border bg-muted/50 px-6 py-2 text-xs font-medium uppercase tracking-wide text-muted-foreground sm:grid">
+                  <span>Date &amp; Heure</span>
+                  <span className="col-span-2">Description</span>
+                  <span className="text-right">Montant</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {transactions.map((tx) => (
+                    <div
+                      key={tx.id}
+                      className="grid grid-cols-1 gap-0.5 px-6 py-3.5 sm:grid-cols-4 sm:items-center sm:gap-3"
+                    >
+                      <span className="text-xs text-muted-foreground">
+                        {formatDateFR(tx.created_at)}
+                      </span>
+                      <span className="col-span-2 text-sm text-ink">
+                        {REASON_LABELS[tx.reason] ?? tx.reason}
+                      </span>
+                      <span
+                        className={cn(
+                          "text-sm font-semibold sm:text-right",
+                          tx.amount > 0 ? "text-green-600" : "text-ink",
+                        )}
+                      >
+                        {tx.amount > 0 ? "+" : ""}
+                        {tx.amount.toLocaleString("fr-FR")} crédits
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-muted-foreground">
+                  <Receipt className="h-6 w-6" />
+                </span>
+                <p className="font-medium text-ink">Aucune transaction pour le moment</p>
+                <p className="text-sm text-muted-foreground">
+                  Vos achats de crédits apparaîtront ici.
+                </p>
+              </div>
+            )}
           </div>
         )}
-
-        <p className="mt-10 text-center text-xs text-muted-foreground">
-          Paiement sécurisé par Stripe · Facture PDF disponible · 1 vidéo offerte à l&apos;inscription
-        </p>
       </main>
     </div>
   );

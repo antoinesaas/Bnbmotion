@@ -23,12 +23,13 @@ export default async function DashboardPage({
   if (!user) redirect("/login");
 
   const [{ data: profile }, { data: generations }] = await Promise.all([
-    supabase.from("profiles").select("full_name, credits_remaining").eq("id", user.id).single(),
+    supabase.from("profiles").select("full_name, credits_remaining, tier").eq("id", user.id).single(),
     supabase.from("generations").select("*").order("created_at", { ascending: false }).limit(50),
   ]);
 
   const firstName = profile?.full_name?.trim().split(" ")[0] || "👋";
   const credits = profile?.credits_remaining ?? 0;
+  const tier = profile?.tier ?? "free";
   const gens = generations ?? [];
 
   const videoUrls: Record<string, string> = {};
@@ -102,7 +103,7 @@ export default async function DashboardPage({
             </p>
           </div>
         </div>
-        <NewGenerationForm userId={user.id} credits={credits} />
+        <NewGenerationForm userId={user.id} credits={credits} tier={tier} />
       </section>
 
       {/* Historique */}

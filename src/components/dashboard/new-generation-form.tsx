@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, AlertCircle, Coins } from "lucide-react";
+import { Wand2, AlertCircle, Coins, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PhotoUploader, type SelectedPhoto } from "./photo-uploader";
 import {
@@ -10,6 +10,7 @@ import {
   RESOLUTIONS,
   DURATIONS,
   creditCost,
+  canUse4K,
   type Resolution,
   type Duration,
 } from "@/lib/constants";
@@ -18,7 +19,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
-export function NewGenerationForm({ userId, credits }: { userId: string; credits: number }) {
+export function NewGenerationForm({
+  userId,
+  credits,
+  tier,
+}: {
+  userId: string;
+  credits: number;
+  tier: string;
+}) {
   const router = useRouter();
   const [propertyName, setPropertyName] = useState("");
   const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
@@ -28,6 +37,7 @@ export function NewGenerationForm({ userId, credits }: { userId: string; credits
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const has4K = canUse4K(tier);
   const cost = creditCost(resolution, duration);
   const enough = credits >= cost;
   const canSubmit =
@@ -40,6 +50,10 @@ export function NewGenerationForm({ userId, credits }: { userId: string; credits
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (resolution === "4k" && !has4K) {
+      router.push("/abonnement?from=4k");
+      return;
+    }
     if (!enough) {
       router.push("/abonnement?from=credits");
       return;
@@ -73,10 +87,8 @@ export function NewGenerationForm({ userId, credits }: { userId: string; credits
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (data.code === "no_credits") {
-          router.push("/abonnement?from=credits");
-          return;
-        }
+        if (data.code === "no_credits") return router.push("/abonnement?from=credits");
+        if (data.code === "need_pro") return router.push("/abonnement?from=4k");
         throw new Error(data.error || "Une erreur est survenue lors de la génération.");
       }
 
@@ -115,23 +127,32 @@ export function NewGenerationForm({ userId, credits }: { userId: string; credits
         <div>
           <Label>Qualité</Label>
           <div className="flex gap-2">
-            {RESOLUTIONS.map((r) => (
-              <button
-                key={r}
-                type="button"
-                disabled={submitting}
-                onClick={() => setResolution(r)}
-                className={cn(
-                  "flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
-                  resolution === r
-                    ? "border-coral-400 bg-coral-50 text-coral-700 ring-1 ring-coral-300"
-                    : "border-border bg-white text-ink hover:bg-muted",
-                )}
-              >
-                {r === "4k" ? "4K" : r}
-              </button>
-            ))}
+            {RESOLUTIONS.map((r) => {
+              const locked = r === "4k" && !has4K;
+              const active = resolution === r && !locked;
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => (locked ? router.push("/abonnement?from=4k") : setResolution(r))}
+                  className={cn(
+                    "relative flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
+                    active
+                      ? "border-coral-400 bg-coral-50 text-coral-700 ring-1 ring-coral-300"
+                      : "border-border bg-white text-ink hover:bg-muted",
+                    locked && "text-muted-foreground",
+                  )}
+                >
+                  {r === "4k" ? "4K" : r}
+                  {locked && <Lock className="ml-1 inline h-3 w-3 align-middle" />}
+                </button>
+              );
+            })}
           </div>
+          {!has4K && (
+            <p className="mt-1 text-xs text-muted-foreground">4K réservée au pack Pro.</p>
+          )}
         </div>
         <div>
           <Label>Durée</Label>
@@ -167,9 +188,7 @@ export function NewGenerationForm({ userId, credits }: { userId: string; credits
         <p className="inline-flex items-center gap-1.5 text-sm text-ink">
           <Coins className="h-4 w-4 text-coral-500" />
           Coût : <strong>{cost.toLocaleString("fr-FR")} crédits</strong>
-          <span className="text-muted-foreground">
-            · solde {credits.toLocaleString("fr-FR")}
-          </span>
+          <span className="text-muted-foreground">· solde {credits.toLocaleString("fr-FR")}</span>
         </p>
         {enough ? (
           <Button type="submit" size="lg" loading={submitting} disabled={!canSubmit}>

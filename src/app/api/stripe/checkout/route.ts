@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       mode: "payment",
       ...customerParams,
       line_items: [{ price: getPriceId(pack.stripeEnvKey), quantity: 1 }],
-      payment_intent_data: { metadata: meta },
+      payment_intent_data: { metadata: meta, setup_future_usage: "off_session" },
       metadata: meta,
       invoice_creation: { enabled: true },
       allow_promotion_codes: true,

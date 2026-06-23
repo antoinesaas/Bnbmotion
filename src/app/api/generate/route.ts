@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildWalkthroughPrompt } from "@/lib/claude-prompt";
+import { planWalkthrough } from "@/lib/ai-prompt";
+import { maybeAutoRefill } from "@/lib/auto-refill";
 import { createSeedanceTask } from "@/lib/seedance";
 import {
   UPLOAD,
   creditCost,
+  canUse4K,
   RESOLUTIONS,
   DURATIONS,
   type Resolution,
@@ -64,10 +66,17 @@ export async function POST(req: Request) {
 
   const { data: profile } = await admin
     .from("profiles")
-    .select("credits_remaining")
+    .select("credits_remaining, tier")
     .eq("id", user.id)
     .single();
   if (!profile) return NextResponse.json({ error: "Profil introuvable." }, { status: 404 });
+
+  if (resolution === "4k" && !canUse4K(profile.tier)) {
+    return NextResponse.json(
+      { error: "La 4K est réservée au pack Pro et au-dessus.", code: "need_pro" },
+      { status: 403 },
+    );
+  }
 
   const cost = creditCost(resolution, duration);
   if (profile.credits_remaining < cost) {
@@ -87,11 +96,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Impossible de préparer les photos." }, { status: 500 });
   }
 
-  const prompt = await buildWalkthroughPrompt({
+  // L'IA ordonne les photos (visite logique) + écrit le prompt walkthrough parfait
+  const plan = await planWalkthrough({
     propertyName,
-    seconds: duration,
+    imageUrls,
+    duration,
     premium: resolution === "4k",
   });
+  const prompt = plan.prompt;
 
   // 1) Créer la génération
   const { data: generation, error: insertError } = await admin
@@ -134,7 +146,7 @@ export async function POST(req: Request) {
   try {
     const taskId = await createSeedanceTask({
       prompt,
-      imageUrls,
+      imageUrls: plan.imageUrls,
       resolution,
       duration,
       aspectRatio: "16:9",
@@ -144,6 +156,7 @@ export async function POST(req: Request) {
       .from("generations")
       .update({ external_job_id: taskId, status: "processing" })
       .eq("id", generation.id);
+    await maybeAutoRefill(user.id);
     return NextResponse.json({ id: generation.id, status: "processing" });
   } catch (e) {
     console.error("createSeedanceTask échoué:", e);
