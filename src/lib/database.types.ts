@@ -67,6 +67,7 @@ export type Database = {
           cost_usd_estimate: number | null
           created_at: string
           credit_consumed: boolean
+          credit_cost: number
           error_message: string | null
           external_job_id: string | null
           generate_audio: boolean
@@ -91,6 +92,7 @@ export type Database = {
           cost_usd_estimate?: number | null
           created_at?: string
           credit_consumed?: boolean
+          credit_cost?: number
           error_message?: string | null
           external_job_id?: string | null
           generate_audio?: boolean
@@ -115,6 +117,7 @@ export type Database = {
           cost_usd_estimate?: number | null
           created_at?: string
           credit_consumed?: boolean
+          credit_cost?: number
           error_message?: string | null
           external_job_id?: string | null
           generate_audio?: boolean

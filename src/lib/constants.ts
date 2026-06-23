@@ -1,7 +1,6 @@
 /**
- * Constantes produit BnbMotion — source unique de vérité pour le branding,
- * les limites d'upload, les plans d'abonnement, les packs de crédits et les
- * paramètres de rendu Seedance.
+ * Constantes produit BnbMotion — modèle pay-as-you-go (crédits).
+ * Génération via kie.ai modèle `gemini-omni-video` (jusqu'à 7 images, 4K).
  */
 
 export const BRAND = {
@@ -9,142 +8,85 @@ export const BRAND = {
   domain: "bnbmotion.com",
   tagline: "Transformez vos photos en vidéo professionnelle pour votre logement.",
   subtagline:
-    "Une vidéo cinématographique qui donne envie de réserver — générée par IA, sans vidéaste.",
+    "Un walkthrough cinématographique de votre logement, généré par IA à partir de vos photos.",
 } as const;
 
-/** Règles d'upload des photos d'un logement. */
+/** Upload : le modèle gemini-omni-video accepte jusqu'à 7 images. */
 export const UPLOAD = {
-  minPhotos: 5,
-  maxPhotos: 15,
-  maxSizeMB: 10,
+  minPhotos: 2,
+  maxPhotos: 7,
+  maxSizeMB: 18,
   acceptedTypes: ["image/jpeg", "image/png", "image/webp"] as const,
   acceptedExtensions: ".jpg,.jpeg,.png,.webp",
 } as const;
 
-export type Resolution = "480p" | "720p" | "1080p";
+export type Resolution = "720p" | "1080p" | "4k";
+export type Duration = 4 | 6 | 8 | 10;
 
-/** Paramètres de rendu effectifs par plan (alignés sur Seedance 1.5 Pro : 4-12 s). */
-export interface RenderParams {
-  seconds: number;
-  resolution: Resolution;
-  audio: boolean;
-  aspectRatio: "16:9" | "9:16" | "1:1" | "4:3" | "3:4" | "21:9";
-}
+export const DURATIONS: Duration[] = [4, 6, 8, 10];
+export const RESOLUTIONS: Resolution[] = ["720p", "1080p", "4k"];
 
-export const FREE_TIER: RenderParams = {
-  seconds: 6,
-  resolution: "480p",
-  audio: false,
-  aspectRatio: "16:9",
+export const RESOLUTION_LABELS: Record<Resolution, string> = {
+  "720p": "HD 720p",
+  "1080p": "Full HD 1080p",
+  "4k": "4K Ultra HD",
 };
 
-export type PlanId = "free" | "starter" | "pro" | "agency";
+/**
+ * Coût en crédits BnbMotion par vidéo (4K 10s = 2000, vidéo standard 1080p 10s = 1000).
+ * Coût réel kie.ai ≈ 0,85€ pour 1000 crédits → marge saine via les packs.
+ */
+export const CREDIT_COST: Record<Resolution, Record<Duration, number>> = {
+  "720p": { 4: 300, 6: 450, 8: 600, 10: 750 },
+  "1080p": { 4: 400, 6: 600, 8: 800, 10: 1000 },
+  "4k": { 4: 800, 6: 1200, 8: 1600, 10: 2000 },
+};
 
-export interface Plan {
-  id: PlanId;
-  name: string;
-  priceMonthly: number;
-  videosPerMonth: number;
-  render: RenderParams;
-  description: string;
-  features: string[];
-  highlighted?: boolean;
-  stripeEnvKey?: string;
+export function creditCost(resolution: Resolution, duration: Duration): number {
+  return CREDIT_COST[resolution]?.[duration] ?? 1000;
 }
 
-export const PLANS: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    priceMonthly: 9.99,
-    videosPerMonth: 4,
-    render: { seconds: 8, resolution: "720p", audio: false, aspectRatio: "16:9" },
-    description: "Pour le host qui gère un ou deux logements.",
-    features: [
-      "4 vidéos par mois",
-      "Clips de 8 secondes",
-      "Qualité HD 720p",
-      "Téléchargement MP4 sans filigrane",
-      "Historique de vos générations",
-    ],
-    stripeEnvKey: "STRIPE_PRICE_STARTER",
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    priceMonthly: 29.99,
-    videosPerMonth: 12,
-    render: { seconds: 10, resolution: "1080p", audio: false, aspectRatio: "16:9" },
-    description: "Le choix des hosts actifs et des conciergeries.",
-    features: [
-      "12 vidéos par mois",
-      "Clips de 10 secondes",
-      "Qualité Full HD 1080p",
-      "Téléchargement MP4 sans filigrane",
-      "Mouvements de caméra premium",
-      "Support prioritaire",
-    ],
-    highlighted: true,
-    stripeEnvKey: "STRIPE_PRICE_PRO",
-  },
-  {
-    id: "agency",
-    name: "Agency",
-    priceMonthly: 149,
-    videosPerMonth: 40,
-    render: { seconds: 12, resolution: "1080p", audio: true, aspectRatio: "16:9" },
-    description: "Pour les agences et gestionnaires multi-logements.",
-    features: [
-      "40 vidéos par mois",
-      "Clips premium de 12 secondes",
-      "Full HD 1080p + audio",
-      "Téléchargement MP4 sans filigrane",
-      "Mouvements de caméra premium",
-      "Accès anticipé aux nouveautés",
-      "Support dédié",
-    ],
-    stripeEnvKey: "STRIPE_PRICE_AGENCY",
-  },
-];
-
-export function getPlan(id: PlanId | string | undefined): Plan | undefined {
-  return PLANS.find((p) => p.id === id);
+/** Coût réel kie.ai en USD (suivi de marge réelle par vidéo). */
+export const KIE_COST_USD: Record<Resolution, Record<Duration, number>> = {
+  "720p": { 4: 0.45, 6: 0.6, 8: 0.75, 10: 0.9 },
+  "1080p": { 4: 0.45, 6: 0.6, 8: 0.75, 10: 0.9 },
+  "4k": { 4: 1.05, 6: 1.2, 8: 1.35, 10: 1.5 },
+};
+export function kieCostUsd(resolution: Resolution, duration: Duration): number {
+  return KIE_COST_USD[resolution]?.[duration] ?? 0.9;
 }
 
-/** Paramètres de rendu selon le plan (free = essai gratuit). */
-export function getRenderParams(plan: PlanId | string | undefined): RenderParams {
-  return getPlan(plan as PlanId)?.render ?? FREE_TIER;
+export const CREDITS_PER_STANDARD_VIDEO = 1000;
+export function videosFromCredits(credits: number): number {
+  return Math.floor((credits ?? 0) / CREDITS_PER_STANDARD_VIDEO);
 }
 
-/** Packs de crédits à l'unité (sans abonnement). Prix ajustables. */
+export const SIGNUP_BONUS_CREDITS = 1000;
+
+export const DEFAULT_RENDER = {
+  resolution: "1080p" as Resolution,
+  duration: 8 as Duration,
+  aspectRatio: "16:9" as const,
+};
+
+/** Packs de crédits (pay-as-you-go, paiement unique Stripe). */
 export interface CreditPack {
   id: string;
   name: string;
   credits: number;
   price: number;
+  popular?: boolean;
   stripeEnvKey: string;
 }
 
 export const CREDIT_PACKS: CreditPack[] = [
-  { id: "pack_5", name: "Pack 5 vidéos", credits: 5, price: 19.99, stripeEnvKey: "STRIPE_PRICE_PACK_5" },
-  { id: "pack_10", name: "Pack 10 vidéos", credits: 10, price: 34.99, stripeEnvKey: "STRIPE_PRICE_PACK_10" },
-  { id: "pack_20", name: "Pack 20 vidéos", credits: 20, price: 59.99, stripeEnvKey: "STRIPE_PRICE_PACK_20" },
+  { id: "pack_decouverte", name: "Découverte", credits: 5000, price: 14.99, stripeEnvKey: "STRIPE_PRICE_PACK_5000" },
+  { id: "pack_pro", name: "Pro", credits: 20000, price: 49.99, popular: true, stripeEnvKey: "STRIPE_PRICE_PACK_20000" },
+  { id: "pack_studio", name: "Studio", credits: 50000, price: 99.99, stripeEnvKey: "STRIPE_PRICE_PACK_50000" },
 ];
 
-/**
- * Estimation du coût Seedance en USD (suivi de marge).
- * ⚠️ Taux indicatifs — à ajuster selon la facturation réelle kie.ai.
- */
-const SEEDANCE_USD_PER_SECOND: Record<Resolution, number> = {
-  "480p": 0.012,
-  "720p": 0.02,
-  "1080p": 0.035,
-};
-const AUDIO_SURCHARGE_PER_SECOND = 0.01;
-
-export function estimateCostUsd(resolution: Resolution, seconds: number, audio: boolean): number {
-  const rate = SEEDANCE_USD_PER_SECOND[resolution] ?? 0.02;
-  return Number(((rate + (audio ? AUDIO_SURCHARGE_PER_SECOND : 0)) * seconds).toFixed(4));
+export function getPack(id: string | undefined): CreditPack | undefined {
+  return CREDIT_PACKS.find((p) => p.id === id);
 }
 
 export const GENERATION_STATUS_LABELS: Record<string, { label: string; tone: string }> = {

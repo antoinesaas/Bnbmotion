@@ -1,7 +1,6 @@
 /**
- * Crée (idempotent) les produits et prix Stripe pour BnbMotion.
- * Usage : node scripts/stripe-setup.mjs
- * Lit STRIPE_SECRET_KEY depuis .env.local. À relancer si besoin (pas de doublon).
+ * Crée (idempotent) les produits/prix Stripe pour les packs de crédits BnbMotion.
+ * Usage : node scripts/stripe-setup.mjs  (lit STRIPE_SECRET_KEY depuis .env.local)
  */
 import Stripe from "stripe";
 import { readFileSync } from "node:fs";
@@ -13,7 +12,7 @@ try {
     if (m) env[m[1]] = m[2].trim();
   }
 } catch {
-  /* pas de .env.local */
+  /* ignore */
 }
 
 const key = process.env.STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY;
@@ -22,30 +21,21 @@ if (!key) {
   process.exit(1);
 }
 const stripe = new Stripe(key);
-const mode = key.startsWith("sk_live") ? "LIVE" : "TEST";
-console.log(`Mode Stripe : ${mode}\n`);
+console.log(`Mode Stripe : ${key.startsWith("sk_live") ? "LIVE" : "TEST"}\n`);
 
-const PLANS = [
-  { envKey: "STRIPE_PRICE_STARTER", name: "BnbMotion Starter", amount: 999, recurring: true, meta: { plan_id: "starter" } },
-  { envKey: "STRIPE_PRICE_PRO", name: "BnbMotion Pro", amount: 2999, recurring: true, meta: { plan_id: "pro" } },
-  { envKey: "STRIPE_PRICE_AGENCY", name: "BnbMotion Agency", amount: 14900, recurring: true, meta: { plan_id: "agency" } },
-  { envKey: "STRIPE_PRICE_PACK_5", name: "BnbMotion — Pack 5 vidéos", amount: 1999, recurring: false, meta: { pack_id: "pack_5", credits: "5" } },
-  { envKey: "STRIPE_PRICE_PACK_10", name: "BnbMotion — Pack 10 vidéos", amount: 3499, recurring: false, meta: { pack_id: "pack_10", credits: "10" } },
-  { envKey: "STRIPE_PRICE_PACK_20", name: "BnbMotion — Pack 20 vidéos", amount: 5999, recurring: false, meta: { pack_id: "pack_20", credits: "20" } },
+const PACKS = [
+  { envKey: "STRIPE_PRICE_PACK_5000", name: "BnbMotion — 5 000 crédits", amount: 1499, meta: { pack_id: "pack_decouverte", credits: "5000" } },
+  { envKey: "STRIPE_PRICE_PACK_20000", name: "BnbMotion — 20 000 crédits", amount: 4999, meta: { pack_id: "pack_pro", credits: "20000" } },
+  { envKey: "STRIPE_PRICE_PACK_50000", name: "BnbMotion — 50 000 crédits", amount: 9999, meta: { pack_id: "pack_studio", credits: "50000" } },
 ];
-
-function metaQuery(meta) {
-  const k = meta.plan_id ? "plan_id" : "pack_id";
-  return `metadata['${k}']:'${meta[k]}'`;
-}
 
 async function ensure(item) {
   let product;
   try {
-    const found = await stripe.products.search({ query: metaQuery(item.meta) });
+    const found = await stripe.products.search({ query: `metadata['pack_id']:'${item.meta.pack_id}'` });
     product = found.data[0];
   } catch {
-    /* search indispo : on créera */
+    /* search indispo */
   }
   if (!product) product = await stripe.products.create({ name: item.name, metadata: item.meta });
 
@@ -56,7 +46,6 @@ async function ensure(item) {
       product: product.id,
       unit_amount: item.amount,
       currency: "eur",
-      ...(item.recurring ? { recurring: { interval: "month" } } : {}),
       metadata: item.meta,
     });
   }
@@ -64,7 +53,7 @@ async function ensure(item) {
 }
 
 const out = {};
-for (const item of PLANS) {
+for (const item of PACKS) {
   out[item.envKey] = await ensure(item);
   console.log(`✅ ${item.envKey} = ${out[item.envKey]}`);
 }

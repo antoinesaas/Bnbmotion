@@ -1,24 +1,19 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSeedanceTask } from "@/lib/seedance";
-import { estimateCostUsd, type Resolution } from "@/lib/constants";
+import { kieCostUsd, type Resolution, type Duration } from "@/lib/constants";
 
 /**
  * Synchronise une génération avec kie.ai.
- * - succès  : télécharge la vidéo dans le bucket privé `videos`, calcule le coût,
- *             passe en `completed`.
- * - échec   : passe en `failed` et rembourse automatiquement le crédit.
- * Idempotent : peut être appelé par le polling client ET par le callback kie.ai.
- *
- * Renvoie le statut final : "processing" | "completed" | "failed".
+ * - succès : télécharge la vidéo dans le bucket privé `videos`, calcule le coût réel, passe en `completed`.
+ * - échec  : passe en `failed` et rembourse automatiquement les crédits.
+ * Idempotent (appelé par le polling client ET le callback kie.ai).
  */
 export async function syncGeneration(generationId: string): Promise<string> {
   const admin = createAdminClient();
 
   const { data: gen } = await admin
     .from("generations")
-    .select(
-      "id, user_id, status, external_job_id, requested_seconds, resolution, generate_audio",
-    )
+    .select("id, user_id, status, external_job_id, requested_seconds, resolution")
     .eq("id", generationId)
     .single();
 
@@ -30,7 +25,7 @@ export async function syncGeneration(generationId: string): Promise<string> {
   try {
     task = await getSeedanceTask(gen.external_job_id);
   } catch {
-    return gen.status; // erreur transitoire : on retentera au prochain poll
+    return gen.status;
   }
 
   if (task.state === "success" && task.resultUrls[0]) {
@@ -48,10 +43,9 @@ export async function syncGeneration(generationId: string): Promise<string> {
         return gen.status;
       }
 
-      const cost = estimateCostUsd(
-        (gen.resolution as Resolution) ?? "720p",
-        gen.requested_seconds,
-        gen.generate_audio,
+      const cost = kieCostUsd(
+        (gen.resolution as Resolution) ?? "1080p",
+        (gen.requested_seconds as Duration) ?? 8,
       );
 
       await admin
@@ -82,7 +76,6 @@ export async function syncGeneration(generationId: string): Promise<string> {
       })
       .eq("id", gen.id)
       .neq("status", "failed");
-    // Remboursement idempotent (refund_credit vérifie credit_consumed).
     await admin.rpc("refund_credit", { p_generation_id: gen.id });
     return "failed";
   }

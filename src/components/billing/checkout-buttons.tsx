@@ -4,11 +4,11 @@ import { useState } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-async function startCheckout(kind: "subscription" | "pack", id: string) {
+async function startCheckout(packId: string) {
   const res = await fetch("/api/stripe/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, id }),
+    body: JSON.stringify({ packId }),
   });
   if (res.status === 401) {
     window.location.href = "/login?redirect=/abonnement";
@@ -23,13 +23,11 @@ async function startCheckout(kind: "subscription" | "pack", id: string) {
 }
 
 export function CheckoutButton({
-  kind,
-  id,
+  packId,
   children,
   className,
 }: {
-  kind: "subscription" | "pack";
-  id: string;
+  packId: string;
   children: React.ReactNode;
   className?: string;
 }) {
@@ -43,7 +41,7 @@ export function CheckoutButton({
           setLoading(true);
           setError(null);
           try {
-            await startCheckout(kind, id);
+            await startCheckout(packId);
           } catch (e) {
             setError(e instanceof Error ? e.message : "Erreur.");
             setLoading(false);

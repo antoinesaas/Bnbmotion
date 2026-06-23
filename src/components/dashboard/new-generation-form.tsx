@@ -2,33 +2,36 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, AlertCircle } from "lucide-react";
+import { Wand2, AlertCircle, Coins } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { PhotoUploader, type SelectedPhoto } from "./photo-uploader";
-import { UPLOAD } from "@/lib/constants";
+import {
+  UPLOAD,
+  RESOLUTIONS,
+  DURATIONS,
+  creditCost,
+  type Resolution,
+  type Duration,
+} from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
-export function NewGenerationForm({
-  userId,
-  credits,
-  maxSeconds,
-}: {
-  userId: string;
-  credits: number;
-  maxSeconds: number;
-}) {
+export function NewGenerationForm({ userId, credits }: { userId: string; credits: number }) {
   const router = useRouter();
   const [propertyName, setPropertyName] = useState("");
   const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
+  const [resolution, setResolution] = useState<Resolution>("1080p");
+  const [duration, setDuration] = useState<Duration>(8);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const noCredits = credits < 1;
+  const cost = creditCost(resolution, duration);
+  const enough = credits >= cost;
   const canSubmit =
-    !noCredits &&
+    enough &&
     propertyName.trim().length > 0 &&
     photos.length >= UPLOAD.minPhotos &&
     photos.length <= UPLOAD.maxPhotos &&
@@ -37,18 +40,19 @@ export function NewGenerationForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
+    if (!enough) {
+      router.push("/abonnement?from=credits");
+      return;
+    }
     if (photos.length < UPLOAD.minPhotos) {
       setError(`Ajoutez au moins ${UPLOAD.minPhotos} photos.`);
       return;
     }
-
     setSubmitting(true);
     try {
       const supabase = createClient();
       const batchId = crypto.randomUUID();
       const paths: string[] = [];
-
       for (let i = 0; i < photos.length; i++) {
         setProgress(`Téléversement des photos ${i + 1}/${photos.length}…`);
         const file = photos[i].file;
@@ -65,13 +69,12 @@ export function NewGenerationForm({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyName: propertyName.trim(), photoPaths: paths }),
+        body: JSON.stringify({ propertyName: propertyName.trim(), photoPaths: paths, resolution, duration }),
       });
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         if (data.code === "no_credits") {
-          router.push("/abonnement");
+          router.push("/abonnement?from=credits");
           return;
         }
         throw new Error(data.error || "Une erreur est survenue lors de la génération.");
@@ -97,15 +100,60 @@ export function NewGenerationForm({
           id="property_name"
           value={propertyName}
           onChange={(e) => setPropertyName(e.target.value)}
-          placeholder="Ex. Studio cosy vue mer — Biarritz"
+          placeholder="Ex. Villa vue mer — Biarritz"
           maxLength={120}
           disabled={submitting}
         />
       </div>
 
       <div>
-        <Label>Photos du logement</Label>
+        <Label>Photos du logement (une par pièce pour le walkthrough)</Label>
         <PhotoUploader photos={photos} onChange={setPhotos} disabled={submitting} />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label>Qualité</Label>
+          <div className="flex gap-2">
+            {RESOLUTIONS.map((r) => (
+              <button
+                key={r}
+                type="button"
+                disabled={submitting}
+                onClick={() => setResolution(r)}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
+                  resolution === r
+                    ? "border-coral-400 bg-coral-50 text-coral-700 ring-1 ring-coral-300"
+                    : "border-border bg-white text-ink hover:bg-muted",
+                )}
+              >
+                {r === "4k" ? "4K" : r}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <Label>Durée</Label>
+          <div className="flex gap-2">
+            {DURATIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                disabled={submitting}
+                onClick={() => setDuration(d)}
+                className={cn(
+                  "flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
+                  duration === d
+                    ? "border-coral-400 bg-coral-50 text-coral-700 ring-1 ring-coral-300"
+                    : "border-border bg-white text-ink hover:bg-muted",
+                )}
+              >
+                {d}s
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -115,26 +163,25 @@ export function NewGenerationForm({
         </div>
       )}
 
-      {noCredits ? (
-        <div className="rounded-xl border border-coral-200 bg-coral-50 px-4 py-3 text-sm text-coral-800">
-          Vous n&apos;avez plus de crédit.{" "}
-          <a href="/abonnement" className="font-semibold underline">
-            Rechargez pour générer une vidéo
-          </a>
-          .
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-muted-foreground">
-            La génération produira une vidéo d&apos;environ <strong>{maxSeconds} s</strong> et
-            consommera <strong>1 crédit</strong> (remboursé en cas d&apos;échec).
-          </p>
+      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="inline-flex items-center gap-1.5 text-sm text-ink">
+          <Coins className="h-4 w-4 text-coral-500" />
+          Coût : <strong>{cost.toLocaleString("fr-FR")} crédits</strong>
+          <span className="text-muted-foreground">
+            · solde {credits.toLocaleString("fr-FR")}
+          </span>
+        </p>
+        {enough ? (
           <Button type="submit" size="lg" loading={submitting} disabled={!canSubmit}>
             {!submitting && <Wand2 className="h-4 w-4" />}
             {submitting ? progress || "Génération…" : "Générer ma vidéo"}
           </Button>
-        </div>
-      )}
+        ) : (
+          <Button type="button" size="lg" onClick={() => router.push("/abonnement?from=credits")}>
+            <Coins className="h-4 w-4" /> Acheter des crédits
+          </Button>
+        )}
+      </div>
     </form>
   );
 }

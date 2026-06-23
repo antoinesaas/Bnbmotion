@@ -5,10 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 /**
- * Téléchargement sécurisé de la vidéo finale.
- * - vidéo terminée requise
- * - PAYWALL : une vidéo d'essai gratuit n'est téléchargeable qu'avec un
- *   abonnement actif (sinon redirection vers /abonnement).
+ * Téléchargement de la vidéo finale. En pay-as-you-go, une vidéo générée
+ * (crédits dépensés) appartient à l'utilisateur : pas de paywall.
  * Délivre une URL signée temporaire du bucket privé `videos`.
  */
 export async function GET(req: Request, { params }: { params: { id: string } }) {
@@ -18,22 +16,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(new URL("/login", req.url));
 
-  const [{ data: gen }, { data: profile }] = await Promise.all([
-    supabase
-      .from("generations")
-      .select("id, property_name, status, video_path, is_free_trial")
-      .eq("id", params.id)
-      .single(),
-    supabase.from("profiles").select("plan").eq("id", user.id).single(),
-  ]);
+  const { data: gen } = await supabase
+    .from("generations")
+    .select("id, property_name, status, video_path")
+    .eq("id", params.id)
+    .single();
 
   if (!gen || gen.status !== "completed" || !gen.video_path) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  const subscribed = !!profile?.plan && profile.plan !== "free";
-  if (gen.is_free_trial && !subscribed) {
-    return NextResponse.redirect(new URL("/abonnement?from=download", req.url));
   }
 
   const filename =
