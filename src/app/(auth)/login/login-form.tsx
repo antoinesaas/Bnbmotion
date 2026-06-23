@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFormState } from "react-dom";
 import { login, type AuthState } from "../actions";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,15 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       </div>
 
       <div>
-        <Label htmlFor="password">Mot de passe</Label>
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password">Mot de passe</Label>
+          <Link
+            href="/mot-de-passe-oublie"
+            className="text-xs text-coral-600 hover:text-coral-700"
+          >
+            Mot de passe oublié ?
+          </Link>
+        </div>
         <PasswordInput
           id="password"
           name="password"

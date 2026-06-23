@@ -50,6 +50,38 @@ export async function login(_prev: AuthState, formData: FormData): Promise<AuthS
   redirect(redirectTo);
 }
 
+export async function requestPasswordReset(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  const email = String(formData.get("email") ?? "").trim();
+  if (!email) return { error: "Veuillez renseigner votre email." };
+
+  const origin =
+    headers().get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const supabase = createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${origin}/auth/callback?next=/reset-password`,
+  });
+  if (error) return { error: translateAuthError(error.message) };
+  return { status: "confirm", email };
+}
+
+export async function updatePassword(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  if (password.length < 8) return { error: "Le mot de passe doit contenir au moins 8 caractères." };
+  if (password !== confirm) return { error: "Les mots de passe ne correspondent pas." };
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) return { error: translateAuthError(error.message) };
+
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
+
 export async function signup(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const email = String(formData.get("email") ?? "").trim();
   const password = String(formData.get("password") ?? "");
