@@ -1,13 +1,13 @@
 /**
- * Client de génération vidéo via kie.ai — modèle `gemini-omni-video`.
- * Accepte jusqu'à 7 images, résolutions 720p/1080p/4k, durées 4/6/8/10s.
- * Flux : createTask -> taskId -> (callback OU polling recordInfo) -> resultUrls.
+ * Client de génération vidéo via kie.ai — modèle `kling-3.0/video`.
+ * Single-shot mode : start_frame + end_frame + kling_elements (référence pièces).
+ * Résolutions : std (720p) / pro (1080p) / 4K — durée fixe 15s — sans audio.
  */
 
-import type { Resolution, Duration } from "@/lib/constants";
+import type { KlingMode } from "@/lib/constants";
 
 const BASE = process.env.SEEDANCE_API_BASE ?? "https://api.kie.ai";
-const MODEL = process.env.SEEDANCE_MODEL ?? "gemini-omni-video";
+const MODEL = process.env.SEEDANCE_MODEL ?? "kling-3.0/video";
 
 function apiKey(): string {
   const k = process.env.SEEDANCE_API_KEY;
@@ -15,13 +15,25 @@ function apiKey(): string {
   return k;
 }
 
+export interface KlingElement {
+  /** Identifiant court utilisé dans le prompt via @name */
+  name: string;
+  /** Description textuelle de la pièce (pour le modèle) */
+  description: string;
+  /** 2 à 4 URLs d'images publiques de cette pièce */
+  elementInputUrls: string[];
+}
+
 export interface VideoTaskInput {
   prompt: string;
-  /** 1 à 7 URLs d'images publiques. */
-  imageUrls: string[];
+  /** URL de la première image (premier frame exact de la vidéo) */
+  startImageUrl: string;
+  /** URL de la dernière image (dernier frame exact de la vidéo) — optionnelle */
+  endImageUrl?: string;
+  /** Jusqu'à 3 groupes de photos de pièces référencées dans le prompt via @name */
+  klingElements?: KlingElement[];
+  mode: KlingMode;
   aspectRatio?: "16:9" | "9:16";
-  resolution?: Resolution;
-  duration: Duration;
   callbackUrl?: string;
 }
 
@@ -33,33 +45,49 @@ export interface VideoTask {
   costTimeMs: number | null;
 }
 
-/** Crée une tâche de génération et renvoie le taskId. */
+/** Crée une tâche Kling 3.0 et renvoie le taskId. */
 export async function createSeedanceTask(input: VideoTaskInput): Promise<string> {
+  const imageUrls = [input.startImageUrl];
+  if (input.endImageUrl) imageUrls.push(input.endImageUrl);
+
+  const body: Record<string, unknown> = {
+    model: MODEL,
+    input: {
+      prompt: input.prompt,
+      image_urls: imageUrls,
+      sound: false,
+      duration: "15",
+      aspect_ratio: input.aspectRatio ?? "16:9",
+      mode: input.mode,
+      multi_shots: false,
+    },
+  };
+
+  if (input.callbackUrl) body.callBackUrl = input.callbackUrl;
+
+  if (input.klingElements && input.klingElements.length > 0) {
+    (body.input as Record<string, unknown>).kling_elements = input.klingElements.map((el) => ({
+      name: el.name,
+      description: el.description,
+      element_input_urls: el.elementInputUrls.slice(0, 4),
+    }));
+  }
+
   const res = await fetch(`${BASE}/api/v1/jobs/createTask`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey()}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      model: MODEL,
-      ...(input.callbackUrl ? { callBackUrl: input.callbackUrl } : {}),
-      input: {
-        prompt: input.prompt,
-        image_urls: input.imageUrls.slice(0, 7),
-        aspect_ratio: input.aspectRatio ?? "16:9",
-        resolution: input.resolution ?? "1080p",
-        duration: String(input.duration),
-      },
-    }),
+    body: JSON.stringify(body),
     cache: "no-store",
   });
 
-  const json = await res.json().catch(() => ({}) as any);
-  if (!res.ok || json?.code !== 200 || !json?.data?.taskId) {
-    throw new Error(json?.msg || `Échec de création de la tâche vidéo (HTTP ${res.status}).`);
+  const json = await res.json().catch(() => ({}) as Record<string, unknown>);
+  if (!res.ok || json?.code !== 200 || !json?.data) {
+    throw new Error((json?.msg as string) || `Échec de création de la tâche vidéo (HTTP ${res.status}).`);
   }
-  return json.data.taskId as string;
+  return ((json.data as Record<string, unknown>).taskId as string);
 }
 
 /** Récupère l'état d'une tâche (endpoint unifié recordInfo). */
@@ -68,27 +96,27 @@ export async function getSeedanceTask(taskId: string): Promise<VideoTask> {
     `${BASE}/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`,
     { headers: { Authorization: `Bearer ${apiKey()}` }, cache: "no-store" },
   );
-  const json = await res.json().catch(() => ({}) as any);
+  const json = await res.json().catch(() => ({}) as Record<string, unknown>);
   if (!res.ok || json?.code !== 200) {
-    throw new Error(json?.msg || `Échec de lecture de la tâche (HTTP ${res.status}).`);
+    throw new Error((json?.msg as string) || `Échec de lecture de la tâche (HTTP ${res.status}).`);
   }
 
-  const d = json.data ?? {};
+  const d = (json.data ?? {}) as Record<string, unknown>;
   let resultUrls: string[] = [];
   if (d.resultJson) {
     try {
-      resultUrls = JSON.parse(d.resultJson).resultUrls ?? [];
+      resultUrls = (JSON.parse(d.resultJson as string) as { resultUrls?: string[] }).resultUrls ?? [];
     } catch {
       /* ignore */
     }
   }
 
   return {
-    state: d.state,
+    state: d.state as string,
     resultUrls,
-    failCode: d.failCode ?? null,
-    failMsg: d.failMsg ?? null,
-    costTimeMs: d.costTime ?? null,
+    failCode: (d.failCode as string | null) ?? null,
+    failMsg: (d.failMsg as string | null) ?? null,
+    costTimeMs: (d.costTime as number | null) ?? null,
   };
 }
 

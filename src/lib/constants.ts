@@ -1,6 +1,6 @@
 /**
  * Constantes produit BnbMotion — modèle pay-as-you-go (crédits).
- * Génération via kie.ai modèle `gemini-omni-video` (jusqu'à 7 images, 4K).
+ * Génération via kie.ai modèle `kling-3.0/video` (15s fixe, 3 résolutions).
  */
 
 export const BRAND = {
@@ -19,10 +19,12 @@ export const UPLOAD = {
   acceptedExtensions: ".jpg,.jpeg,.png,.webp",
 } as const;
 
-export type Resolution = "720p" | "1080p" | "4k";
-export type Duration = 6 | 8 | 10;
+/** Durée fixe des vidéos Kling 3.0 (15 secondes). */
+export const FIXED_DURATION = 15;
 
-export const DURATIONS: Duration[] = [6, 8, 10];
+export type Resolution = "720p" | "1080p" | "4k";
+export type KlingMode = "std" | "pro" | "4K";
+
 export const RESOLUTIONS: Resolution[] = ["720p", "1080p", "4k"];
 
 export const RESOLUTION_LABELS: Record<Resolution, string> = {
@@ -31,27 +33,35 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
   "4k": "4K Ultra HD",
 };
 
-/** Coût en crédits par vidéo (4K 10s = 2000, standard 1080p 10s = 1000). */
-export const CREDIT_COST: Record<Resolution, Record<Duration, number>> = {
-  "720p": { 6: 450, 8: 600, 10: 750 },
-  "1080p": { 6: 600, 8: 800, 10: 1000 },
-  "4k": { 6: 1200, 8: 1600, 10: 2000 },
+export const KLING_MODE: Record<Resolution, KlingMode> = {
+  "720p": "std",
+  "1080p": "pro",
+  "4k": "4K",
 };
-export function creditCost(resolution: Resolution, duration: Duration): number {
-  return CREDIT_COST[resolution]?.[duration] ?? 1000;
+
+/** Coût en crédits BnbMotion par vidéo (15s fixe). */
+export const CREDIT_COST: Record<Resolution, number> = {
+  "720p": 1000,
+  "1080p": 1500,
+  "4k": 5000,
+};
+
+export function creditCost(resolution: Resolution): number {
+  return CREDIT_COST[resolution] ?? 1500;
 }
 
-/** Coût réel kie.ai en USD (suivi de marge réelle par vidéo). */
-export const KIE_COST_USD: Record<Resolution, Record<Duration, number>> = {
-  "720p": { 6: 0.6, 8: 0.75, 10: 0.9 },
-  "1080p": { 6: 0.6, 8: 0.75, 10: 0.9 },
-  "4k": { 6: 1.2, 8: 1.35, 10: 1.5 },
+/** Coût réel kie.ai en USD — Kling 3.0 15s, sans audio. */
+export const KIE_COST_USD: Record<Resolution, number> = {
+  "720p": 1.05,   // 14 credits/s × 15s × $0.005/credit
+  "1080p": 1.35,  // 18 credits/s × 15s × $0.005/credit
+  "4k": 5.025,    // 67 credits/s × 15s × $0.005/credit
 };
-export function kieCostUsd(resolution: Resolution, duration: Duration): number {
-  return KIE_COST_USD[resolution]?.[duration] ?? 0.9;
+
+export function kieCostUsd(resolution: Resolution): number {
+  return KIE_COST_USD[resolution] ?? 1.35;
 }
 
-export const CREDITS_PER_STANDARD_VIDEO = 1000;
+export const CREDITS_PER_STANDARD_VIDEO = 1500;
 export function videosFromCredits(credits: number): number {
   return Math.floor((credits ?? 0) / CREDITS_PER_STANDARD_VIDEO);
 }
@@ -61,7 +71,7 @@ export const CREDITS_VALIDITY_DAYS = 90;
 
 export const DEFAULT_RENDER = {
   resolution: "1080p" as Resolution,
-  duration: 8 as Duration,
+  duration: FIXED_DURATION,
   aspectRatio: "16:9" as const,
 };
 
@@ -102,7 +112,7 @@ export function getPack(id: string | undefined): CreditPack | undefined {
   return CREDIT_PACKS.find((p) => p.id === id);
 }
 
-/** Prix d'une vidéo 1080p 10s (1000 crédits) pour ce pack. */
+/** Prix d'une vidéo 1080p standard (1500 crédits) pour ce pack. */
 export function pricePerStandardVideo(pack: CreditPack): number {
   return (pack.price / pack.credits) * CREDITS_PER_STANDARD_VIDEO;
 }

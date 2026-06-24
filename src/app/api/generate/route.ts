@@ -6,21 +6,21 @@ import { maybeAutoRefill } from "@/lib/auto-refill";
 import { createSeedanceTask } from "@/lib/seedance";
 import {
   UPLOAD,
+  FIXED_DURATION,
+  KLING_MODE,
   creditCost,
   canUse4K,
   RESOLUTIONS,
-  DURATIONS,
   type Resolution,
-  type Duration,
 } from "@/lib/constants";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Lance une génération vidéo (gemini-omni-video).
- * Calcule le coût en crédits selon résolution/durée, vérifie le solde,
- * réserve les crédits (remboursés si échec), puis lance la tâche kie.ai.
+ * Lance une génération vidéo (Kling 3.0 — 15s fixe).
+ * Durée fixe 15s, résolution choisie par l'utilisateur (720p/1080p/4k).
+ * Utilise start_frame + end_frame + kling_elements pour utiliser les vraies photos.
  */
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
-  let body: { propertyName?: string; photoPaths?: string[]; resolution?: string; duration?: number };
+  let body: { propertyName?: string; photoPaths?: string[]; resolution?: string };
   try {
     body = await req.json();
   } catch {
@@ -41,7 +41,6 @@ export async function POST(req: Request) {
   const resolution = (RESOLUTIONS.includes(body.resolution as Resolution)
     ? body.resolution
     : "1080p") as Resolution;
-  const duration = (DURATIONS.includes(body.duration as Duration) ? body.duration : 8) as Duration;
 
   if (!propertyName) {
     return NextResponse.json({ error: "Le nom de la propriété est requis." }, { status: 400 });
@@ -78,7 +77,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const cost = creditCost(resolution, duration);
+  const cost = creditCost(resolution);
   if (profile.credits_remaining < cost) {
     return NextResponse.json(
       { error: "Crédits insuffisants.", code: "no_credits", needed: cost, balance: profile.credits_remaining },
@@ -86,7 +85,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // URLs signées (kie.ai doit pouvoir télécharger les photos) — jusqu'à 7
+  // URLs signées 1h (kie.ai doit pouvoir télécharger les photos)
   const imageUrls: string[] = [];
   for (const path of photoPaths.slice(0, UPLOAD.maxPhotos)) {
     const { data: signed } = await admin.storage.from("listings").createSignedUrl(path, 3600);
@@ -96,14 +95,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Impossible de préparer les photos." }, { status: 500 });
   }
 
-  // L'IA ordonne les photos (visite logique) + écrit le prompt walkthrough parfait
+  // GPT-4o-mini analyse les photos, groupe par pièce, écrit le prompt Kling 3.0
   const plan = await planWalkthrough({
     propertyName,
     imageUrls,
-    duration,
     premium: resolution === "4k",
   });
-  const prompt = plan.prompt;
 
   // 1) Créer la génération
   const { data: generation, error: insertError } = await admin
@@ -113,11 +110,11 @@ export async function POST(req: Request) {
       property_name: propertyName,
       photo_paths: photoPaths,
       status: "pending",
-      requested_seconds: duration,
+      requested_seconds: FIXED_DURATION,
       resolution,
       aspect_ratio: "16:9",
       credit_cost: cost,
-      prompt,
+      prompt: plan.prompt,
       is_free_trial: false,
     })
     .select("id")
@@ -137,7 +134,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Crédits insuffisants.", code: "no_credits" }, { status: 402 });
   }
 
-  // 3) Lancer la tâche
+  // 3) Lancer la tâche Kling 3.0
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const callbackUrl = siteUrl.startsWith("https://")
     ? `${siteUrl}/api/webhooks/seedance`
@@ -145,10 +142,11 @@ export async function POST(req: Request) {
 
   try {
     const taskId = await createSeedanceTask({
-      prompt,
-      imageUrls: plan.imageUrls,
-      resolution,
-      duration,
+      prompt: plan.prompt,
+      startImageUrl: plan.startImageUrl,
+      endImageUrl: plan.endImageUrl,
+      klingElements: plan.elements.length > 0 ? plan.elements : undefined,
+      mode: KLING_MODE[resolution],
       aspectRatio: "16:9",
       callbackUrl,
     });
