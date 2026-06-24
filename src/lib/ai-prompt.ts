@@ -84,6 +84,11 @@ Write ONE continuous prompt that:
 
 Use each element's room TYPE only to pick a fitting camera move (e.g. pool/terrace/exterior → low gliding travel or crane up; bedroom → soft slow push-in; kitchen → lateral dolly), NEVER to describe its contents.
 
+TIME BUDGET (critical — the clip is short, every element MUST appear):
+- Spread the duration across ALL elements so the camera reaches the last one. Never let a single move or zoom eat more than its fair share — no endless rotations or one very long zoom on the opening shot.
+- Give each transition a clear cut/ramp so no space is skipped.
+- When there are more spaces than time allows, give the most sellable ones (living room, kitchen, pool/terrace, exterior, master bedroom) a touch more screen time and keep secondary spaces (bathroom, hallway, office) to a quick beat — but still show them.
+
 QUALITY TAG: 4K → "Cinematic 4K grading, rich HDR". Standard → "Crisp professional real-estate look".
 
 Return ONLY JSON: { "prompt": "..." } — camera direction only, zero scene description.`;

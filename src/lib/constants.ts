@@ -48,6 +48,16 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
   "4k": "4K Ultra HD",
 };
 
+/**
+ * Temps de génération estimé affiché à l'utilisateur. La durée réelle dépend de
+ * la charge des serveurs Kling ; mesuré en prod : ~12 min en 1080p, davantage en 4K.
+ */
+export const GENERATION_ETA_LABEL: Record<Resolution, string> = {
+  "720p": "5 à 10 minutes",
+  "1080p": "10 à 15 minutes",
+  "4k": "20 à 35 minutes",
+};
+
 export const KLING_MODE: Record<Resolution, KlingMode> = {
   "720p": "std",
   "1080p": "pro",

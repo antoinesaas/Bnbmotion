@@ -1,13 +1,34 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getSeedanceTask } from "@/lib/seedance";
+import { sendEmail, generationReadyEmail, generationFailedEmail } from "@/lib/email";
 import { kieCostUsd, type Resolution, type Duration } from "@/lib/constants";
+
+/** Prévient l'utilisateur par e-mail (best-effort, n'échoue jamais la sync). */
+async function notify(
+  admin: SupabaseClient,
+  userId: string,
+  build: (propertyName: string, dashboardUrl: string) => { subject: string; html: string },
+  propertyName: string,
+): Promise<void> {
+  try {
+    const { data } = await admin.auth.admin.getUserById(userId);
+    const to = data.user?.email;
+    if (!to) return;
+    const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.bnbmotion.fr";
+    const { subject, html } = build(propertyName || "votre bien", `${base}/dashboard`);
+    await sendEmail({ to, subject, html });
+  } catch (e) {
+    console.error("Notification e-mail échouée:", e);
+  }
+}
 
 export async function syncGeneration(generationId: string): Promise<string> {
   const admin = createAdminClient();
 
   const { data: gen } = await admin
     .from("generations")
-    .select("id, user_id, status, external_job_id, resolution, requested_seconds")
+    .select("id, user_id, status, external_job_id, resolution, requested_seconds, property_name")
     .eq("id", generationId)
     .single();
 
@@ -42,7 +63,7 @@ export async function syncGeneration(generationId: string): Promise<string> {
         ((gen.requested_seconds as number) ?? 15) as Duration,
       );
 
-      await admin
+      const { data: updated } = await admin
         .from("generations")
         .update({
           status: "completed",
@@ -52,7 +73,14 @@ export async function syncGeneration(generationId: string): Promise<string> {
           error_message: null,
         })
         .eq("id", gen.id)
-        .neq("status", "completed");
+        .neq("status", "completed")
+        .select("id")
+        .maybeSingle();
+
+      // Un seul appel effectue réellement la transition → un seul e-mail.
+      if (updated) {
+        await notify(admin, gen.user_id, generationReadyEmail, gen.property_name);
+      }
 
       return "completed";
     } catch (e) {
@@ -62,15 +90,20 @@ export async function syncGeneration(generationId: string): Promise<string> {
   }
 
   if (task.state === "fail") {
-    await admin
+    const { data: updated } = await admin
       .from("generations")
       .update({
         status: "failed",
         error_message: task.failMsg || "La génération a échoué côté fournisseur.",
       })
       .eq("id", gen.id)
-      .neq("status", "failed");
+      .neq("status", "failed")
+      .select("id")
+      .maybeSingle();
     await admin.rpc("refund_credit", { p_generation_id: gen.id });
+    if (updated) {
+      await notify(admin, gen.user_id, generationFailedEmail, gen.property_name);
+    }
     return "failed";
   }
 

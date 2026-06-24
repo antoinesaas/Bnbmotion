@@ -1,7 +1,7 @@
 import { Download, AlertCircle, Film, Clock } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDateFR } from "@/lib/utils";
-import { RESOLUTION_LABELS, type Resolution } from "@/lib/constants";
+import { RESOLUTION_LABELS, GENERATION_ETA_LABEL, type Resolution } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
 
 type Generation = Database["public"]["Tables"]["generations"]["Row"];
@@ -63,7 +63,9 @@ export function GenerationCard({
         )}
         {(g.status === "pending" || g.status === "processing") && (
           <p className="mt-2 text-xs text-blue-600">
-            Génération en cours… (≈ 1 à 3 min). Cette page se met à jour automatiquement.
+            Génération en cours… (≈{" "}
+            {GENERATION_ETA_LABEL[g.resolution as Resolution] ?? "10 à 15 minutes"}). Vous pouvez
+            fermer cette page : un e-mail vous préviendra dès qu&apos;elle est prête.
           </p>
         )}
       </div>
