@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import type { KlingElement } from "@/lib/seedance";
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const MAX_KLING_ELEMENTS = 3;
 const MAX_PHOTOS_PER_ELEMENT = 4;
 
 export interface WalkthroughPlan {
@@ -18,13 +19,30 @@ export interface RoomGroupInput {
   imageUrls: string[];
 }
 
-/** Chaque pièce devient un kling_element — Kling supporte plus de 3 éléments. */
+/**
+ * Kling limite à 3 kling_elements max.
+ * ≤ 3 pièces : mapping 1:1. > 3 pièces : fusion en 3 groupes équilibrés.
+ */
 function mergeRoomsToElements(roomGroups: RoomGroupInput[]): KlingElement[] {
-  return roomGroups.map((rg, i) => ({
-    name: `element_${i + 1}`,
-    description: rg.promptLabel,
-    elementInputUrls: rg.imageUrls.slice(0, MAX_PHOTOS_PER_ELEMENT),
-  }));
+  if (roomGroups.length <= MAX_KLING_ELEMENTS) {
+    return roomGroups.map((rg, i) => ({
+      name: `element_${i + 1}`,
+      description: rg.promptLabel,
+      elementInputUrls: rg.imageUrls.slice(0, MAX_PHOTOS_PER_ELEMENT),
+    }));
+  }
+  const elements: KlingElement[] = [];
+  const chunkSize = Math.ceil(roomGroups.length / MAX_KLING_ELEMENTS);
+  for (let i = 0; i < MAX_KLING_ELEMENTS; i++) {
+    const slice = roomGroups.slice(i * chunkSize, (i + 1) * chunkSize);
+    if (slice.length === 0) break;
+    elements.push({
+      name: `element_${i + 1}`,
+      description: slice.map((r) => r.promptLabel).join(" and "),
+      elementInputUrls: slice.flatMap((r) => r.imageUrls).slice(0, MAX_PHOTOS_PER_ELEMENT),
+    });
+  }
+  return elements;
 }
 
 function fallbackPlan(
@@ -88,7 +106,7 @@ function buildUserMessage(
   return `Property: "${propertyName}"
 Video: ${duration} seconds, Kling AI, no audio, 16:9, ${premium ? "4K" : "Full HD"}
 
-Element references (${elements.length} rooms):
+Element references (${elements.length} element${elements.length > 1 ? "s" : ""}, up to 3):
 ${roomList}
 
 Opening: first photo of "${roomGroups[0].room}"
