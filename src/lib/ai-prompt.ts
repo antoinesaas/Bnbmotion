@@ -2,7 +2,6 @@ import OpenAI from "openai";
 import type { KlingElement } from "@/lib/seedance";
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
-const MAX_KLING_ELEMENTS = 3;
 const MAX_PHOTOS_PER_ELEMENT = 4;
 
 export interface WalkthroughPlan {
@@ -19,33 +18,13 @@ export interface RoomGroupInput {
   imageUrls: string[];
 }
 
-/**
- * Fusionne N groupes de pièces en au maximum 3 kling_elements.
- * Si ≤ 3 pièces : mapping 1:1.
- * Si > 3 pièces : les pièces consécutives sont regroupées (ex. 5 pièces → 3 éléments).
- */
+/** Chaque pièce devient un kling_element — Kling supporte plus de 3 éléments. */
 function mergeRoomsToElements(roomGroups: RoomGroupInput[]): KlingElement[] {
-  if (roomGroups.length <= MAX_KLING_ELEMENTS) {
-    return roomGroups.map((rg, i) => ({
-      name: `element_${i + 1}`,
-      description: rg.promptLabel,
-      elementInputUrls: rg.imageUrls.slice(0, MAX_PHOTOS_PER_ELEMENT),
-    }));
-  }
-
-  // Distribuire N pièces en 3 groupes de taille égale
-  const elements: KlingElement[] = [];
-  const chunkSize = Math.ceil(roomGroups.length / MAX_KLING_ELEMENTS);
-  for (let i = 0; i < MAX_KLING_ELEMENTS; i++) {
-    const slice = roomGroups.slice(i * chunkSize, (i + 1) * chunkSize);
-    if (slice.length === 0) break;
-    elements.push({
-      name: `element_${i + 1}`,
-      description: slice.map((r) => r.promptLabel).join(" and "),
-      elementInputUrls: slice.flatMap((r) => r.imageUrls).slice(0, MAX_PHOTOS_PER_ELEMENT),
-    });
-  }
-  return elements;
+  return roomGroups.map((rg, i) => ({
+    name: `element_${i + 1}`,
+    description: rg.promptLabel,
+    elementInputUrls: rg.imageUrls.slice(0, MAX_PHOTOS_PER_ELEMENT),
+  }));
 }
 
 function fallbackPlan(
@@ -106,14 +85,10 @@ function buildUserMessage(
     .map((el) => `  @${el.name} = ${el.description}`)
     .join("\n");
 
-  const totalRooms = roomGroups.length;
-  const mergedNote = totalRooms > MAX_KLING_ELEMENTS
-    ? ` (${totalRooms} rooms merged into ${elements.length} elements)` : "";
-
   return `Property: "${propertyName}"
-Video: ${duration} seconds, Kling AI, no audio, 16:9, ${premium ? "4K" : "Full HD"}${mergedNote}
+Video: ${duration} seconds, Kling AI, no audio, 16:9, ${premium ? "4K" : "Full HD"}
 
-Element reference${mergedNote}:
+Element references (${elements.length} rooms):
 ${roomList}
 
 Opening: first photo of "${roomGroups[0].room}"

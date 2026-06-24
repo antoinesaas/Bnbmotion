@@ -36,7 +36,7 @@ export function BillingTopPanel({
   const [error, setError] = useState<string | null>(null);
 
   const selectedPack = CREDIT_PACKS.find((p) => p.id === selectedId) ?? CREDIT_PACKS[2];
-  const has4K = tier === "pro" || tier === "studio";
+  const has4K = tier === "studio";
 
   async function handleBuy() {
     if (!isAuthed) {
@@ -90,9 +90,9 @@ export function BillingTopPanel({
           <ul className="mt-2 space-y-1.5">
             {[
               "720p & Full HD 1080p — tous les plans",
-              has4K ? "4K Ultra HD — déjà inclus ✓" : "4K Ultra HD — pack Pro et Studio",
+              has4K ? "4K Ultra HD — déjà inclus ✓" : "4K Ultra HD — pack Studio uniquement",
               "Sans filigrane — tous les plans",
-              "Durées disponibles : 6, 8 ou 10 secondes",
+              "Durées disponibles : 5, 10 ou 15 secondes",
             ].map((line) => (
               <li key={line} className="flex items-start gap-2 text-sm text-ink/80">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-coral-500" />
@@ -145,11 +145,11 @@ export function BillingTopPanel({
         </div>
 
         <div className="mt-4 flex items-center gap-2 rounded-xl bg-muted px-4 py-3 text-sm">
-          <span className="text-muted-foreground">Prix / vidéo (1080p · 10s) :</span>
+          <span className="text-muted-foreground">Prix / vidéo (1080p · 15s) :</span>
           <span className="font-semibold text-ink">
             {formatEUR(pricePerStandardVideo(selectedPack))}
           </span>
-          {(selectedPack.tier === "pro" || selectedPack.tier === "studio") && (
+          {selectedPack.tier === "studio" && (
             <span className="ml-auto rounded-full bg-coral-100 px-2 py-0.5 text-xs font-medium text-coral-700">
               4K incluse
             </span>

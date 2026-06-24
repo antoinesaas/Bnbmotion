@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 /**
  * Webhook Stripe (pay-as-you-go). À chaque achat de pack réussi : crédite
- * (idempotent), met à jour le tier (débloque la 4K dès le pack Pro) et
+ * (idempotent), met à jour le tier (4K débloquée dès le pack Studio) et
  * mémorise le client Stripe pour l'accès aux factures.
  */
 export async function POST(req: Request) {
