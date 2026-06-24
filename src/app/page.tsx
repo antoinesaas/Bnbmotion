@@ -98,9 +98,12 @@ export default function HomePage() {
             {/* chips photos -> vidéo */}
             <div className="absolute -left-4 -top-4 hidden rotate-[-6deg] rounded-xl border border-border bg-white p-2 shadow-soft sm:block">
               <div className="flex gap-1.5">
-                <span className="h-9 w-9 rounded-lg bg-coral-200" />
-                <span className="h-9 w-9 rounded-lg bg-stone-200" />
-                <span className="h-9 w-9 rounded-lg bg-coral-100" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-1.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-2.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-3.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
               </div>
               <p className="mt-1.5 text-center text-[10px] font-medium text-muted-foreground">vos photos</p>
             </div>
