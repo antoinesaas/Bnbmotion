@@ -49,23 +49,20 @@ export interface VideoTask {
 
 /** Crée une tâche Kling 3.0 et renvoie le taskId. */
 export async function createSeedanceTask(input: VideoTaskInput): Promise<string> {
-  const hasElements = (input.klingElements?.length ?? 0) > 0;
+  const imageUrls = [input.startImageUrl];
+  if (input.endImageUrl) imageUrls.push(input.endImageUrl);
 
   const klingInput: Record<string, unknown> = {
     prompt: input.prompt,
-    duration: input.duration ?? 15,
+    image_urls: imageUrls,
+    sound: false,
+    duration: input.duration ?? 15,         // number requis par l'API
     aspect_ratio: input.aspectRatio ?? "16:9",
     mode: input.mode,
+    multi_shots: false,
   };
 
-  // image_urls (start + end frame) uniquement sans éléments — évite le conflit Kling 3.0
-  if (!hasElements) {
-    const imageUrls = [input.startImageUrl];
-    if (input.endImageUrl) imageUrls.push(input.endImageUrl);
-    klingInput.image_urls = imageUrls;
-  }
-
-  if (hasElements) {
+  if ((input.klingElements?.length ?? 0) > 0) {
     klingInput.kling_elements = input.klingElements!.map((el) => ({
       name: el.name,
       description: el.description,
