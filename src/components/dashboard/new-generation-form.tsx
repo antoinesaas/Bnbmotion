@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Wand2, AlertCircle, Coins, Lock, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { PhotoUploader, type SelectedPhoto } from "./photo-uploader";
+import { RoomPhotoUploader, type RoomGroup } from "./room-photo-uploader";
 import {
   UPLOAD,
   FIXED_DURATION,
@@ -29,7 +29,7 @@ export function NewGenerationForm({
 }) {
   const router = useRouter();
   const [propertyName, setPropertyName] = useState("");
-  const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
+  const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([]);
   const [resolution, setResolution] = useState<Resolution>("1080p");
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -38,60 +38,62 @@ export function NewGenerationForm({
   const has4K = canUse4K(tier);
   const cost = creditCost(resolution);
   const enough = credits >= cost;
-  const canSubmit =
-    enough &&
-    propertyName.trim().length > 0 &&
-    photos.length >= UPLOAD.minPhotos &&
-    photos.length <= UPLOAD.maxPhotos &&
-    !submitting;
+
+  const allRoomsValid = roomGroups.length >= UPLOAD.minRooms && roomGroups.every((g) => g.files.length >= UPLOAD.minPhotosPerRoom);
+  const totalPhotos = roomGroups.reduce((s, g) => s + g.files.length, 0);
+
+  const canSubmit = enough && propertyName.trim().length > 0 && allRoomsValid && !submitting;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (resolution === "4k" && !has4K) {
-      router.push("/abonnement?from=4k");
+
+    if (resolution === "4k" && !has4K) { router.push("/abonnement?from=4k"); return; }
+    if (!enough) { router.push("/abonnement?from=credits"); return; }
+    if (!allRoomsValid) {
+      setError(`Ajoutez au moins ${UPLOAD.minRooms} pièce(s) avec ${UPLOAD.minPhotosPerRoom} photos chacune.`);
       return;
     }
-    if (!enough) {
-      router.push("/abonnement?from=credits");
-      return;
-    }
-    if (photos.length < UPLOAD.minPhotos) {
-      setError(`Ajoutez au moins ${UPLOAD.minPhotos} photos.`);
-      return;
-    }
+
     setSubmitting(true);
     try {
       const supabase = createClient();
       const batchId = crypto.randomUUID();
-      const paths: string[] = [];
-      for (let i = 0; i < photos.length; i++) {
-        setProgress(`Téléversement des photos ${i + 1}/${photos.length}…`);
-        const file = photos[i].file;
-        const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-        const path = `${userId}/${batchId}/${String(i + 1).padStart(2, "0")}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("listings")
-          .upload(path, file, { contentType: file.type, upsert: false });
-        if (upErr) throw new Error("Échec du téléversement d'une photo. Réessayez.");
-        paths.push(path);
+      let globalIdx = 0;
+
+      const apiGroups: { room: string; promptLabel: string; paths: string[] }[] = [];
+
+      for (const group of roomGroups) {
+        const paths: string[] = [];
+        for (const { file } of group.files) {
+          setProgress(`Téléversement ${globalIdx + 1}/${totalPhotos}…`);
+          const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase().replace(/[^a-z]/g, "");
+          const path = `${userId}/${batchId}/${String(globalIdx + 1).padStart(3, "0")}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("listings")
+            .upload(path, file, { contentType: file.type, upsert: false });
+          if (upErr) throw new Error("Échec du téléversement. Réessayez.");
+          paths.push(path);
+          globalIdx++;
+        }
+        apiGroups.push({ room: group.label, promptLabel: group.promptLabel, paths });
       }
 
-      setProgress("Analyse des photos et génération du prompt…");
+      setProgress("Analyse des pièces et génération du prompt…");
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyName: propertyName.trim(), photoPaths: paths, resolution }),
+        body: JSON.stringify({ propertyName: propertyName.trim(), roomGroups: apiGroups, resolution }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         if (data.code === "no_credits") return router.push("/abonnement?from=credits");
         if (data.code === "need_pro") return router.push("/abonnement?from=4k");
-        throw new Error(data.error || "Une erreur est survenue lors de la génération.");
+        throw new Error(data.error || "Une erreur est survenue.");
       }
 
-      photos.forEach((p) => URL.revokeObjectURL(p.url));
-      setPhotos([]);
+      roomGroups.forEach((g) => g.files.forEach((f) => URL.revokeObjectURL(f.url)));
+      setRoomGroups([]);
       setPropertyName("");
       router.refresh();
     } catch (err) {
@@ -118,12 +120,18 @@ export function NewGenerationForm({
 
       <div>
         <Label>
-          Photos du logement{" "}
-          <span className="text-muted-foreground font-normal">
-            ({UPLOAD.minPhotos}–{UPLOAD.maxPhotos} photos, une par pièce)
+          Photos par pièce{" "}
+          <span className="font-normal text-muted-foreground">
+            ({UPLOAD.minPhotosPerRoom}–{UPLOAD.maxPhotosPerRoom} photos par pièce · {UPLOAD.maxRooms} pièces max)
           </span>
         </Label>
-        <PhotoUploader photos={photos} onChange={setPhotos} disabled={submitting} />
+        <div className="mt-2">
+          <RoomPhotoUploader
+            groups={roomGroups}
+            onChange={setRoomGroups}
+            disabled={submitting}
+          />
+        </div>
       </div>
 
       <div>
@@ -153,13 +161,14 @@ export function NewGenerationForm({
           })}
         </div>
         {!has4K && (
-          <p className="mt-1 text-xs text-muted-foreground">4K réservée au pack Pro.</p>
+          <p className="mt-1 text-xs text-muted-foreground">4K réservée au pack Pro (49,99 €).</p>
         )}
       </div>
 
       <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
         <Clock className="h-4 w-4 shrink-0 text-coral-400" />
-        Vidéo cinématographique de <strong className="text-ink">{FIXED_DURATION} secondes</strong> — Kling 3.0 AI
+        Vidéo cinématographique de{" "}
+        <strong className="text-ink">{FIXED_DURATION} secondes</strong> — Kling 3.0 AI
       </div>
 
       {error && (
