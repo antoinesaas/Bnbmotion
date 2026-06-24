@@ -30,7 +30,7 @@ export interface VideoTaskInput {
   startImageUrl: string;
   /** URL de la dernière image (dernier frame exact de la vidéo) — optionnelle */
   endImageUrl?: string;
-  /** Jusqu'à 3 groupes de photos de pièces référencées dans le prompt via @name */
+  /** Groupes de photos de pièces (max 3, limite API Kling) référencées via @name */
   klingElements?: KlingElement[];
   mode: KlingMode;
   /** Durée en secondes (5, 10 ou 15) — défaut 15 */
@@ -49,31 +49,32 @@ export interface VideoTask {
 
 /** Crée une tâche Kling 3.0 et renvoie le taskId. */
 export async function createSeedanceTask(input: VideoTaskInput): Promise<string> {
-  const imageUrls = [input.startImageUrl];
-  if (input.endImageUrl) imageUrls.push(input.endImageUrl);
+  const hasElements = (input.klingElements?.length ?? 0) > 0;
 
-  const body: Record<string, unknown> = {
-    model: MODEL,
-    input: {
-      prompt: input.prompt,
-      image_urls: imageUrls,
-      sound: false,
-      duration: String(input.duration ?? 15),
-      aspect_ratio: input.aspectRatio ?? "16:9",
-      mode: input.mode,
-      multi_shots: false,
-    },
+  const klingInput: Record<string, unknown> = {
+    prompt: input.prompt,
+    duration: input.duration ?? 15,
+    aspect_ratio: input.aspectRatio ?? "16:9",
+    mode: input.mode,
   };
 
-  if (input.callbackUrl) body.callBackUrl = input.callbackUrl;
+  // image_urls (start + end frame) uniquement sans éléments — évite le conflit Kling 3.0
+  if (!hasElements) {
+    const imageUrls = [input.startImageUrl];
+    if (input.endImageUrl) imageUrls.push(input.endImageUrl);
+    klingInput.image_urls = imageUrls;
+  }
 
-  if (input.klingElements && input.klingElements.length > 0) {
-    (body.input as Record<string, unknown>).kling_elements = input.klingElements.map((el) => ({
+  if (hasElements) {
+    klingInput.kling_elements = input.klingElements!.map((el) => ({
       name: el.name,
       description: el.description,
       element_input_urls: el.elementInputUrls.slice(0, 4),
     }));
   }
+
+  const body: Record<string, unknown> = { model: MODEL, input: klingInput };
+  if (input.callbackUrl) body.callBackUrl = input.callbackUrl;
 
   const res = await fetch(`${BASE}/api/v1/jobs/createTask`, {
     method: "POST",
