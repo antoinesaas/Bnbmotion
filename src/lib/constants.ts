@@ -48,6 +48,10 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
   "4k": "4K Ultra HD",
 };
 
+/** Vidéo de démonstration (bucket public Supabase) utilisée sur la landing. */
+export const DEMO_VIDEO_URL =
+  "https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/demo-villa.mp4";
+
 /**
  * Temps de génération estimé affiché à l'utilisateur. La durée réelle dépend de
  * la charge des serveurs Kling ; mesuré en prod : ~12 min en 1080p, davantage en 4K.

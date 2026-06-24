@@ -84,6 +84,12 @@ Write ONE continuous prompt that:
 
 Use each element's room TYPE only to pick a fitting camera move (e.g. pool/terrace/exterior → low gliding travel or crane up; bedroom → soft slow push-in; kitchen → lateral dolly), NEVER to describe its contents.
 
+COHERENCE (make it feel like ONE continuous flight, not random shots):
+- Keep a single, smooth through-line: the camera should always move forward through the property as if walking/flying a continuous path — never jump back and forth or reverse direction abruptly.
+- Connect each move to the next: the end of one move should flow naturally into the start of the next (e.g. a forward glide eases into the next push-in). Use the transition to bridge them, not to cut hard.
+- Keep motion calm and steady: prefer slow, controlled speed with at most one accent move; avoid stacking many different moves or fast spins that feel chaotic.
+- One consistent style for the whole clip (steady cinematic flythrough), so every space looks like part of the same tour.
+
 TIME BUDGET (critical — the clip is short, every element MUST appear):
 - Spread the duration across ALL elements so the camera reaches the last one. Never let a single move or zoom eat more than its fair share — no endless rotations or one very long zoom on the opening shot.
 - Give each transition a clear cut/ramp so no space is skipped.

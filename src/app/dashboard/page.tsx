@@ -54,6 +54,17 @@ export default async function DashboardPage({
     .filter((g) => g.status === "pending" || g.status === "processing")
     .map((g) => g.id);
 
+  // Générations ayant déjà reçu un avis → on ne re-demande pas le retour.
+  const completedIds = gens.filter((g) => g.status === "completed").map((g) => g.id);
+  const feedbackGiven = new Set<string>();
+  if (completedIds.length > 0) {
+    const { data: fb } = await supabase
+      .from("generation_feedback")
+      .select("generation_id")
+      .in("generation_id", completedIds);
+    fb?.forEach((row) => feedbackGiven.add(row.generation_id));
+  }
+
   return (
     <div className="space-y-10">
       <GenerationPoller activeIds={activeIds} />
@@ -112,7 +123,12 @@ export default async function DashboardPage({
         {gens.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2">
             {gens.map((g) => (
-              <GenerationCard key={g.id} generation={g} videoUrl={videoUrls[g.id]} />
+              <GenerationCard
+                key={g.id}
+                generation={g}
+                videoUrl={videoUrls[g.id]}
+                feedbackGiven={feedbackGiven.has(g.id)}
+              />
             ))}
           </div>
         ) : (

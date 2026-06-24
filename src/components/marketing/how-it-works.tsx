@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ImagePlus, Wand2, Download, Play, MousePointer2, Check } from "lucide-react";
+import { ImagePlus, Wand2, Download, MousePointer2, Check } from "lucide-react";
+import { DemoVideo } from "@/components/marketing/demo-video";
 
 const PHRASES = [
   "Analyse des pièces…",
@@ -89,26 +90,18 @@ export function HowItWorks() {
           <Caption n={2} title="L'IA génère la vidéo" text="Mouvements de caméra cinématographiques type drone, traversée des pièces — en quelques minutes." />
         </div>
 
-        {/* 3. Téléchargement */}
+        {/* 3. Téléchargement — vidéo de démonstration réelle */}
         <div>
           <StepFrame>
-            <div className="absolute inset-0 bg-gradient-to-br from-coral-500/30 via-ink to-ink" />
-            <div className="absolute inset-0 grid place-items-center">
-              <div className="grid h-14 w-14 place-items-center rounded-full bg-white/95 text-coral-600 shadow-lg">
-                <Play className="h-6 w-6 translate-x-0.5 fill-coral-600" />
-              </div>
-            </div>
-            <div className="absolute inset-x-5 bottom-4">
-              <div className="h-1.5 w-2/3 rounded-full bg-coral-400" />
-            </div>
+            <DemoVideo className="absolute inset-0 h-full w-full" />
             <span
-              className="absolute right-3 top-3 grid h-7 w-7 place-items-center rounded-full bg-coral-500 text-white shadow-soft"
+              className="pointer-events-none absolute right-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full bg-coral-500 text-white shadow-soft"
               style={{ animation: "hiw-bob 1.6s ease-in-out infinite" }}
             >
               <Download className="h-4 w-4" />
             </span>
             <span
-              className="absolute left-3 top-3 grid h-7 w-7 place-items-center rounded-full bg-white text-green-600 shadow-soft"
+              className="pointer-events-none absolute left-3 top-3 z-10 grid h-7 w-7 place-items-center rounded-full bg-white text-green-600 shadow-soft"
               style={{ animation: "hiw-pop 3s ease-in-out infinite" }}
             >
               <Check className="h-4 w-4" />

@@ -1,5 +1,6 @@
 import { Download, AlertCircle, Film, Clock } from "lucide-react";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { GenerationFeedback } from "@/components/dashboard/generation-feedback";
 import { formatDateFR } from "@/lib/utils";
 import { RESOLUTION_LABELS, GENERATION_ETA_LABEL, type Resolution } from "@/lib/constants";
 import type { Database } from "@/lib/database.types";
@@ -9,9 +10,11 @@ type Generation = Database["public"]["Tables"]["generations"]["Row"];
 export function GenerationCard({
   generation: g,
   videoUrl,
+  feedbackGiven = false,
 }: {
   generation: Generation;
   videoUrl?: string | null;
+  feedbackGiven?: boolean;
 }) {
   if (g.status === "completed" && videoUrl) {
     return (
@@ -37,6 +40,7 @@ export function GenerationCard({
             Télécharger
           </a>
         </div>
+        <GenerationFeedback generationId={g.id} alreadyGiven={feedbackGiven} />
       </div>
     );
   }

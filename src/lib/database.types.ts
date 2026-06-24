@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -56,6 +58,50 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generation_feedback: {
+        Row: {
+          created_at: string
+          generation_created_at: string | null
+          generation_id: string
+          id: string
+          property_name: string | null
+          reason: string | null
+          satisfied: boolean
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          generation_created_at?: string | null
+          generation_id: string
+          id?: string
+          property_name?: string | null
+          reason?: string | null
+          satisfied: boolean
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          generation_created_at?: string | null
+          generation_id?: string
+          id?: string
+          property_name?: string | null
+          reason?: string | null
+          satisfied?: boolean
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_feedback_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: true
+            referencedRelation: "generations"
             referencedColumns: ["id"]
           },
         ]
@@ -221,7 +267,7 @@ export type Database = {
         Returns: number
       }
       consume_credit: { Args: { p_generation_id: string }; Returns: number }
-      expire_credits: { Args: Record<PropertyKey, never>; Returns: undefined }
+      expire_credits: { Args: never; Returns: undefined }
       refund_credit: { Args: { p_generation_id: string }; Returns: number }
     }
     Enums: {

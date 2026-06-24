@@ -1,17 +1,10 @@
 import Link from "next/link";
-import {
-  PiggyBank,
-  TrendingUp,
-  Megaphone,
-  Play,
-  Star,
-  Check,
-  ArrowRight,
-} from "lucide-react";
+import { PiggyBank, TrendingUp, Megaphone, Star, Check, ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { HowItWorks } from "@/components/marketing/how-it-works";
+import { DemoVideo } from "@/components/marketing/demo-video";
 
 const BENEFITS = [
   {
@@ -96,27 +89,12 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Visuel mockup */}
+          {/* Vidéo de démonstration */}
           <div className="relative animate-fade-up [animation-delay:120ms]">
-            <div className="relative mx-auto aspect-[4/3] w-full max-w-lg overflow-hidden rounded-3xl border border-border bg-ink shadow-soft">
-              <div className="absolute inset-0 bg-gradient-to-br from-coral-500/40 via-ink to-ink" />
-              <div className="absolute inset-0 bg-grid opacity-20" />
-              <div className="absolute inset-0 grid place-items-center">
-                <div className="grid h-16 w-16 place-items-center rounded-full bg-white/95 text-coral-600 shadow-lg">
-                  <Play className="h-7 w-7 translate-x-0.5 fill-coral-600" />
-                </div>
-              </div>
-              {/* faux timeline */}
-              <div className="absolute inset-x-5 bottom-5">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/25">
-                  <div className="h-full w-2/3 rounded-full bg-coral-400" />
-                </div>
-                <div className="mt-2 flex justify-between text-[11px] text-white/70">
-                  <span>Studio cosy vue mer</span>
-                  <span>0:10</span>
-                </div>
-              </div>
-            </div>
+            <DemoVideo
+              label="Studio cosy vue mer"
+              className="mx-auto aspect-[4/3] w-full max-w-lg rounded-3xl border border-border shadow-soft"
+            />
             {/* chips photos -> vidéo */}
             <div className="absolute -left-4 -top-4 hidden rotate-[-6deg] rounded-xl border border-border bg-white p-2 shadow-soft sm:block">
               <div className="flex gap-1.5">

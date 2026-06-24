@@ -219,6 +219,12 @@ export function NewGenerationForm({
           </Button>
         )}
       </div>
+
+      <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-center text-xs leading-relaxed text-amber-800">
+        🧪 Outil encore en phase de test. Si un résultat ne vous convient pas, dites-le-nous
+        juste après la génération : vos retours nous aident à l&apos;améliorer et nous pouvons
+        vous rembourser les crédits concernés.
+      </p>
     </form>
   );
 }
