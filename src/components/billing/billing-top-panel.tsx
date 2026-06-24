@@ -36,7 +36,7 @@ export function BillingTopPanel({
   const [error, setError] = useState<string | null>(null);
 
   const selectedPack = CREDIT_PACKS.find((p) => p.id === selectedId) ?? CREDIT_PACKS[2];
-  const has4K = tier === "studio";
+  const has4K = tier === "pro" || tier === "studio";
 
   async function handleBuy() {
     if (!isAuthed) {
@@ -90,7 +90,7 @@ export function BillingTopPanel({
           <ul className="mt-2 space-y-1.5">
             {[
               "720p & Full HD 1080p — tous les plans",
-              has4K ? "4K Ultra HD — déjà inclus ✓" : "4K Ultra HD — pack Studio uniquement",
+              has4K ? "4K Ultra HD — déjà inclus ✓" : "4K Ultra HD — pack Pro et Studio",
               "Sans filigrane — tous les plans",
               "Durées disponibles : 5, 10 ou 15 secondes",
             ].map((line) => (
@@ -149,7 +149,7 @@ export function BillingTopPanel({
           <span className="font-semibold text-ink">
             {formatEUR(pricePerStandardVideo(selectedPack))}
           </span>
-          {selectedPack.tier === "studio" && (
+          {(selectedPack.tier === "pro" || selectedPack.tier === "studio") && (
             <span className="ml-auto rounded-full bg-coral-100 px-2 py-0.5 text-xs font-medium text-coral-700">
               4K incluse
             </span>

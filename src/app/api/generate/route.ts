@@ -95,7 +95,7 @@ export async function POST(req: Request) {
 
   if (resolution === "4k" && !canUse4K(profile.tier)) {
     return NextResponse.json(
-      { error: "La 4K est réservée au pack Studio (99,99 €).", code: "need_pro" },
+      { error: "La 4K est disponible dès le pack Pro (49,99 €).", code: "need_pro" },
       { status: 403 },
     );
   }

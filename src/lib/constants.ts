@@ -110,9 +110,9 @@ export const TIER_RANK: Record<Tier, number> = {
   studio: 4,
 };
 
-/** 4K réservée au pack Studio (99,99 €). */
+/** 4K disponible dès le pack Pro (49,99 €). */
 export function canUse4K(tier: string | undefined | null): boolean {
-  return (TIER_RANK[(tier as Tier) ?? "free"] ?? 0) >= TIER_RANK.studio;
+  return (TIER_RANK[(tier as Tier) ?? "free"] ?? 0) >= TIER_RANK.pro;
 }
 
 /** Packs de crédits pay-as-you-go. */

@@ -190,7 +190,7 @@ export function NewGenerationForm({
         </div>
         {!has4K && (
           <p className="mt-1 text-xs text-muted-foreground">
-            4K réservée au pack Studio (99,99 €).
+            4K disponible dès le pack Pro (49,99 €).
           </p>
         )}
       </div>
