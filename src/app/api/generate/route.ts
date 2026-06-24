@@ -109,24 +109,37 @@ export async function POST(req: Request) {
     );
   }
 
-  // Normaliser chaque image en JPEG (les fichiers AVIF/HEIC/WebP — fréquents avec
-  // une extension .png trompeuse — font planter le décodeur Kling), puis signer (1h).
+  // ─── VALIDATION STRICTE avant toute réservation de crédit / appel à kie.ai ───
+  // Chaque image est transcodée en JPEG (sharp décode d'après les octets réels :
+  // un AVIF/HEIC déguisé en .png est ainsi soit converti, soit détecté comme
+  // illisible). Si UNE SEULE image échoue, on abandonne ici : aucun crédit n'est
+  // consommé et kie.ai n'est jamais sollicité.
   const signedRoomGroups: { room: string; promptLabel: string; imageUrls: string[] }[] = [];
   for (const group of roomGroups) {
     const normalizedPaths = await Promise.all(
       group.paths.map((path) => normalizeToJpeg(admin, "listings", path)),
     );
+    if (normalizedPaths.some((p) => p === null)) {
+      return NextResponse.json(
+        {
+          error: `Une photo de « ${group.room} » est dans un format illisible (AVIF/HEIC ou fichier corrompu). Réenregistrez-la en JPEG ou PNG puis réessayez.`,
+          code: "bad_image",
+        },
+        { status: 422 },
+      );
+    }
     const urls: string[] = [];
     for (const normPath of normalizedPaths) {
-      if (!normPath) continue;
-      const { data: signed } = await admin.storage.from("listings").createSignedUrl(normPath, 3600);
-      if (signed?.signedUrl) urls.push(signed.signedUrl);
-    }
-    if (urls.length < UPLOAD.minPhotosPerRoom) {
-      return NextResponse.json(
-        { error: "Impossible de préparer les photos (format d'image non supporté)." },
-        { status: 500 },
-      );
+      const { data: signed } = await admin.storage
+        .from("listings")
+        .createSignedUrl(normPath!, 3600);
+      if (!signed?.signedUrl) {
+        return NextResponse.json(
+          { error: "Impossible de préparer les photos. Réessayez." },
+          { status: 500 },
+        );
+      }
+      urls.push(signed.signedUrl);
     }
     signedRoomGroups.push({ room: group.room, promptLabel: group.promptLabel ?? group.room, imageUrls: urls });
   }
@@ -137,6 +150,21 @@ export async function POST(req: Request) {
     duration,
     premium: resolution === "4k",
   });
+
+  // Garde-fou : le plan doit contenir une image de départ et des éléments valides
+  // avant d'engager le moindre crédit ou appel réseau vers kie.ai.
+  const planValid =
+    typeof plan.startImageUrl === "string" &&
+    plan.startImageUrl.startsWith("http") &&
+    plan.prompt.length > 20 &&
+    plan.elements.length > 0 &&
+    plan.elements.every((el) => el.elementInputUrls.length >= 1);
+  if (!planValid) {
+    return NextResponse.json(
+      { error: "Préparation de la vidéo impossible. Réessayez." },
+      { status: 500 },
+    );
+  }
 
   const allPaths = roomGroups.flatMap((g) => g.paths);
 
