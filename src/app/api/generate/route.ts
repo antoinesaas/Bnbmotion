@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { planWalkthrough } from "@/lib/ai-prompt";
 import { maybeAutoRefill } from "@/lib/auto-refill";
 import { createSeedanceTask } from "@/lib/seedance";
+import { normalizeToJpeg } from "@/lib/image-normalize";
 import {
   UPLOAD,
   DURATIONS,
@@ -108,16 +109,24 @@ export async function POST(req: Request) {
     );
   }
 
-  // Signer les URLs pour kie.ai (1h)
+  // Normaliser chaque image en JPEG (les fichiers AVIF/HEIC/WebP — fréquents avec
+  // une extension .png trompeuse — font planter le décodeur Kling), puis signer (1h).
   const signedRoomGroups: { room: string; promptLabel: string; imageUrls: string[] }[] = [];
   for (const group of roomGroups) {
+    const normalizedPaths = await Promise.all(
+      group.paths.map((path) => normalizeToJpeg(admin, "listings", path)),
+    );
     const urls: string[] = [];
-    for (const path of group.paths) {
-      const { data: signed } = await admin.storage.from("listings").createSignedUrl(path, 3600);
+    for (const normPath of normalizedPaths) {
+      if (!normPath) continue;
+      const { data: signed } = await admin.storage.from("listings").createSignedUrl(normPath, 3600);
       if (signed?.signedUrl) urls.push(signed.signedUrl);
     }
     if (urls.length < UPLOAD.minPhotosPerRoom) {
-      return NextResponse.json({ error: "Impossible de préparer les photos." }, { status: 500 });
+      return NextResponse.json(
+        { error: "Impossible de préparer les photos (format d'image non supporté)." },
+        { status: 500 },
+      );
     }
     signedRoomGroups.push({ room: group.room, promptLabel: group.promptLabel ?? group.room, imageUrls: urls });
   }
