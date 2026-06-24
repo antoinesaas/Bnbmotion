@@ -68,51 +68,43 @@ function fallbackPlan(
   return { startImageUrl, endImageUrl, elements, orderedImageUrls, prompt };
 }
 
-const SYSTEM_PROMPT = `You are a luxury real-estate videographer writing prompts for Kling AI video.
+const SYSTEM_PROMPT = `You are a cinematographer directing a Kling AI real-estate video.
 
-The room structure is pre-defined by the user. Your ONLY job: write a cinematic walkthrough prompt.
+The actual room photos are given to the video model separately as @element_1, @element_2, … — the model ALREADY SEES them. Therefore you must NOT describe what is in the rooms: no objects, furniture, materials, colors, light, or layout. Your ONLY job is to choreograph the CAMERA.
 
-PROMPT FORMAT (follow exactly):
-"Cinematic FPV walkthrough of [short property description]. Camera glides into [opening room — actual visual details]. Slow reveal — @element_1 — [real details: materials, colors, light]. Speed ramp → @element_2 — slow reveal — [real details]. [Continue for each element]. Final glide — [closing scene details]. [Quality tag]. No people, no text, no watermark. [N] seconds."
+Write ONE continuous prompt that:
+- Visits the elements in the EXACT order given, each referenced as @element_N.
+- Gives each space and each transition a specific camera move (glide, dolly-in, push-in, crane up, low travel, gentle orbit, speed-ramp, whip-pan).
+- Matches the rhythm to the duration:
+  • 5s  → fast and energetic: quick push-ins, snappy speed-ramps, little dwell.
+  • 10s → balanced: one smooth reveal per space, clean ramps between them.
+  • 15s → cinematic: slow elegant dolly reveals on every space, flowing transitions.
+- Ends on a closing camera move.
+- Finishes with the quality tag, then "No people, no text, no watermark. [N] seconds."
 
-CAMERA RHYTHM (mandatory):
-- Room entry: "Slow reveal" or "slow 1-second reveal" — camera decelerates
-- Room exit: "Speed ramp →" — fast motion blur transition
-- For SHORT videos (5s): minimal reveals, focus on speed and energy
-- For MEDIUM videos (10s): 1-2 reveals with good transitions
-- For LONG videos (15s): full slow-reveal treatment for every room
+Use each element's room TYPE only to pick a fitting camera move (e.g. pool/terrace/exterior → low gliding travel or crane up; bedroom → soft slow push-in; kitchen → lateral dolly), NEVER to describe its contents.
 
-QUALITY:
-- 4K: "Cinematic 4K grading, rich HDR, film grain"
-- Standard: "Professional real-estate photography look"
+QUALITY TAG: 4K → "Cinematic 4K grading, rich HDR". Standard → "Crisp professional real-estate look".
 
-RULES:
-- Use ONLY @element_1, @element_2, @element_3 exactly
-- Describe ONLY what is actually visible in the photos provided
-- Specific details: "white Carrara marble island" not "nice kitchen"
-- Return only JSON: { "prompt": "..." }`;
+Return ONLY JSON: { "prompt": "..." } — camera direction only, zero scene description.`;
 
 function buildUserMessage(
   propertyName: string,
-  roomGroups: RoomGroupInput[],
   elements: KlingElement[],
   duration: number,
   premium: boolean,
 ): string {
-  const roomList = elements
-    .map((el) => `  @${el.name} = ${el.description}`)
+  const orderedList = elements
+    .map((el, i) => `  ${i + 1}. @${el.name} — room type: ${el.description}`)
     .join("\n");
 
   return `Property: "${propertyName}"
-Video: ${duration} seconds, Kling AI, no audio, 16:9, ${premium ? "4K" : "Full HD"}
+Video: ${duration} seconds, 16:9, no audio, ${premium ? "4K" : "Full HD"}
 
-Element references (${elements.length} element${elements.length > 1 ? "s" : ""}, up to 3):
-${roomList}
+Visit these elements in THIS exact order. Choreograph one camera move + transition for each — do NOT describe their contents:
+${orderedList}
 
-Opening: first photo of "${roomGroups[0].room}"
-Closing: last photo of "${roomGroups.at(-1)!.room}"
-
-Photos sent below in room order.
+Open on @${elements[0].name}, close on @${elements.at(-1)!.name}.
 Return ONLY JSON: { "prompt": "..." }`;
 }
 
@@ -139,26 +131,16 @@ export async function planWalkthrough(opts: {
     const client = new OpenAI({ apiKey: key });
     const allImageUrls = roomGroups.flatMap((rg) => rg.imageUrls);
 
-    const userContent: OpenAI.ChatCompletionContentPart[] = [
-      {
-        type: "text",
-        text: buildUserMessage(propertyName, roomGroups, elements, duration, premium),
-      },
-      ...allImageUrls.map(
-        (url): OpenAI.ChatCompletionContentPart => ({
-          type: "image_url",
-          image_url: { url, detail: "low" },
-        }),
-      ),
-    ];
-
+    // Pas d'images envoyées à GPT : Kling reçoit déjà les photos en kling_elements
+    // et les « voit ». GPT ne fait que chorégraphier la caméra à partir du type de
+    // pièce et de l'ordre — c'est plus fidèle, plus rapide et bien moins coûteux.
     const res = await client.chat.completions.create({
       model: MODEL,
-      max_tokens: 600,
+      max_tokens: 400,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userContent },
+        { role: "user", content: buildUserMessage(propertyName, elements, duration, premium) },
       ],
     });
 
