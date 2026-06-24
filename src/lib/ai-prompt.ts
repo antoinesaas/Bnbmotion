@@ -163,10 +163,18 @@ export async function planWalkthrough(opts: {
     });
 
     const parsed = JSON.parse(res.choices[0]?.message?.content ?? "{}") as { prompt?: string };
-    const prompt =
+    let prompt =
       typeof parsed.prompt === "string" && parsed.prompt.length > 40
         ? parsed.prompt
         : fallback.prompt;
+
+    // Garde-fou : chaque kling_element DOIT être référencé via @name dans le prompt,
+    // sinon Kling ignore les photos associées. Si GPT en oublie, on ré-ancre tout.
+    const missing = elements.filter((el) => !prompt.includes(`@${el.name}`));
+    if (missing.length > 0) {
+      const flow = elements.map((el) => `@${el.name}`).join(" → ");
+      prompt += ` Camera flows through ${flow}, each space revealed in order.`;
+    }
 
     const startImageUrl = roomGroups[0].imageUrls[0];
     const endImageUrl = roomGroups.at(-1)!.imageUrls.at(-1)!;
