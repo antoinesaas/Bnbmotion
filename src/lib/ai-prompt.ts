@@ -103,7 +103,7 @@ function buildUserMessage(
   premium: boolean,
 ): string {
   const roomList = elements
-    .map((el, i) => `  @${el.name} = ${el.description}`)
+    .map((el) => `  @${el.name} = ${el.description}`)
     .join("\n");
 
   const totalRooms = roomGroups.length;
