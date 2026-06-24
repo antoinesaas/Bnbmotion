@@ -2,6 +2,8 @@ import OpenAI from "openai";
 import type { KlingElement } from "@/lib/seedance";
 
 const MODEL = process.env.OPENAI_MODEL ?? "gpt-4o-mini";
+const MAX_KLING_ELEMENTS = 3;
+const MAX_PHOTOS_PER_ELEMENT = 4;
 
 export interface WalkthroughPlan {
   startImageUrl: string;
@@ -17,24 +19,42 @@ export interface RoomGroupInput {
   imageUrls: string[];
 }
 
-function sanitizeElementName(key: string, index: number): string {
-  return `element_${index + 1}`;
-}
+/**
+ * Fusionne N groupes de pièces en au maximum 3 kling_elements.
+ * Si ≤ 3 pièces : mapping 1:1.
+ * Si > 3 pièces : les pièces consécutives sont regroupées (ex. 5 pièces → 3 éléments).
+ */
+function mergeRoomsToElements(roomGroups: RoomGroupInput[]): KlingElement[] {
+  if (roomGroups.length <= MAX_KLING_ELEMENTS) {
+    return roomGroups.map((rg, i) => ({
+      name: `element_${i + 1}`,
+      description: rg.promptLabel,
+      elementInputUrls: rg.imageUrls.slice(0, MAX_PHOTOS_PER_ELEMENT),
+    }));
+  }
 
-function buildElements(roomGroups: RoomGroupInput[]): KlingElement[] {
-  return roomGroups.map((rg, i) => ({
-    name: sanitizeElementName(rg.room, i),
-    description: rg.promptLabel,
-    elementInputUrls: rg.imageUrls.slice(0, 4),
-  }));
+  // Distribuire N pièces en 3 groupes de taille égale
+  const elements: KlingElement[] = [];
+  const chunkSize = Math.ceil(roomGroups.length / MAX_KLING_ELEMENTS);
+  for (let i = 0; i < MAX_KLING_ELEMENTS; i++) {
+    const slice = roomGroups.slice(i * chunkSize, (i + 1) * chunkSize);
+    if (slice.length === 0) break;
+    elements.push({
+      name: `element_${i + 1}`,
+      description: slice.map((r) => r.promptLabel).join(" and "),
+      elementInputUrls: slice.flatMap((r) => r.imageUrls).slice(0, MAX_PHOTOS_PER_ELEMENT),
+    });
+  }
+  return elements;
 }
 
 function fallbackPlan(
   propertyName: string,
   roomGroups: RoomGroupInput[],
+  duration: number,
   premium: boolean,
 ): WalkthroughPlan {
-  const elements = buildElements(roomGroups);
+  const elements = mergeRoomsToElements(roomGroups);
   const startImageUrl = roomGroups[0].imageUrls[0];
   const endImageUrl = roomGroups.at(-1)!.imageUrls.at(-1)!;
   const orderedImageUrls = roomGroups.flatMap((rg) => rg.imageUrls);
@@ -43,86 +63,94 @@ function fallbackPlan(
   const prompt = [
     `Cinematic FPV walkthrough of "${propertyName}".`,
     `Camera enters and flows through ${elementRefs}.`,
-    `Each space: slow 1-second reveal, then fast speed ramp to the next room.`,
-    premium
-      ? "Cinematic 4K, film grain, HDR."
-      : "Professional real-estate look, crisp and clean.",
-    "Warm golden light, no people, no text, no watermark. 15 seconds.",
+    `Each space: slow reveal, then fast speed ramp to the next.`,
+    premium ? "Cinematic 4K, film grain, HDR." : "Professional real-estate look, crisp and clean.",
+    `No people, no text, no watermark. ${duration} seconds.`,
   ].join(" ");
 
   return { startImageUrl, endImageUrl, elements, orderedImageUrls, prompt };
 }
 
-const SYSTEM_PROMPT = `You are a luxury real-estate videographer writing prompts for Kling 3.0 AI video.
+const SYSTEM_PROMPT = `You are a luxury real-estate videographer writing prompts for Kling AI video.
 
-The room structure is pre-defined by the user. Your ONLY job: write a cinematic 15-second walkthrough prompt.
+The room structure is pre-defined by the user. Your ONLY job: write a cinematic walkthrough prompt.
 
 PROMPT FORMAT (follow exactly):
-"Cinematic FPV walkthrough of [short property description]. Camera glides through [opening room — describe what is actually visible]. Slow 1-second reveal — @element_1 — [exact visual details of room 1: materials, colors, light]. Speed ramp → @element_2 — slow reveal — [exact visual details of room 2]. [Continue for each element]. Final glide — [end scene details]. [Quality tag]. No people, no text, no watermark. 15 seconds."
+"Cinematic FPV walkthrough of [short property description]. Camera glides into [opening room — actual visual details]. Slow reveal — @element_1 — [real details: materials, colors, light]. Speed ramp → @element_2 — slow reveal — [real details]. [Continue for each element]. Final glide — [closing scene details]. [Quality tag]. No people, no text, no watermark. [N] seconds."
 
-CAMERA RHYTHM (mandatory — do not omit):
-- Room entry: "Slow 1-second reveal" or "slow reveal" — camera decelerates
-- Room exit: "Speed ramp →" or "fast speed ramp" — motion blur transition
-- Pattern repeats for every room
+CAMERA RHYTHM (mandatory):
+- Room entry: "Slow reveal" or "slow 1-second reveal" — camera decelerates
+- Room exit: "Speed ramp →" — fast motion blur transition
+- For SHORT videos (5s): minimal reveals, focus on speed and energy
+- For MEDIUM videos (10s): 1-2 reveals with good transitions
+- For LONG videos (15s): full slow-reveal treatment for every room
 
-QUALITY TAG:
-- 4K mode: "Cinematic 4K grading, rich HDR, film grain"
+QUALITY:
+- 4K: "Cinematic 4K grading, rich HDR, film grain"
 - Standard: "Professional real-estate photography look"
 
 RULES:
-- Use ONLY @element_1, @element_2, @element_3 — exact names, no variation
-- Describe ONLY what is actually visible in the provided photos
-- Be specific: "white Carrara marble island" not "nice kitchen"
-- Maximum 200 words total
+- Use ONLY @element_1, @element_2, @element_3 exactly
+- Describe ONLY what is actually visible in the photos provided
+- Specific details: "white Carrara marble island" not "nice kitchen"
 - Return only JSON: { "prompt": "..." }`;
 
 function buildUserMessage(
   propertyName: string,
   roomGroups: RoomGroupInput[],
+  elements: KlingElement[],
+  duration: number,
   premium: boolean,
 ): string {
-  const roomList = roomGroups
-    .map((rg, i) => `  @element_${i + 1} = ${rg.room} (${rg.imageUrls.length} photos)`)
+  const roomList = elements
+    .map((el, i) => `  @${el.name} = ${el.description}`)
     .join("\n");
 
-  return `Property: "${propertyName}"
-Video: 15 seconds, Kling 3.0, no audio, 16:9, ${premium ? "4K" : "Full HD"}
+  const totalRooms = roomGroups.length;
+  const mergedNote = totalRooms > MAX_KLING_ELEMENTS
+    ? ` (${totalRooms} rooms merged into ${elements.length} elements)` : "";
 
-Room structure (pre-defined — do NOT re-identify):
+  return `Property: "${propertyName}"
+Video: ${duration} seconds, Kling AI, no audio, 16:9, ${premium ? "4K" : "Full HD"}${mergedNote}
+
+Element reference${mergedNote}:
 ${roomList}
 
-Opening shot: first photo of "${roomGroups[0].room}"
-Closing shot: last photo of "${roomGroups.at(-1)!.room}"
+Opening: first photo of "${roomGroups[0].room}"
+Closing: last photo of "${roomGroups.at(-1)!.room}"
 
-Photos are sent below in order: all photos of room 1 first, then room 2, etc.
-
-Write the cinematic 15-second prompt. Return ONLY JSON: { "prompt": "..." }`;
+Photos sent below in room order.
+Return ONLY JSON: { "prompt": "..." }`;
 }
 
 /**
- * Planifie le walkthrough Kling 3.0 avec les pièces pré-classées par l'utilisateur.
- *
- * Les kling_elements sont construits directement depuis roomGroups.
- * GPT-4o-mini ne fait que rédiger le prompt (pas de détection de pièces).
- * Fallback silencieux si OpenAI est indisponible.
+ * Planifie le walkthrough Kling avec les pièces pré-classées par l'utilisateur.
+ * Si l'utilisateur a ajouté plus de 3 pièces, elles sont fusionnées en 3 kling_elements.
+ * GPT-4o-mini rédige uniquement le prompt (pas de détection de pièces).
  */
 export async function planWalkthrough(opts: {
   propertyName: string;
   roomGroups: RoomGroupInput[];
+  duration?: number;
   premium?: boolean;
 }): Promise<WalkthroughPlan> {
-  const { propertyName, roomGroups, premium = false } = opts;
-  const fallback = fallbackPlan(propertyName, roomGroups, premium);
+  const { propertyName, roomGroups, duration = 15, premium = false } = opts;
+  const fallback = fallbackPlan(propertyName, roomGroups, duration, premium);
   const key = process.env.OPENAI_API_KEY;
 
   if (!key || roomGroups.length === 0) return fallback;
 
+  const elements = mergeRoomsToElements(roomGroups);
+
   try {
     const client = new OpenAI({ apiKey: key });
-
     const allImageUrls = roomGroups.flatMap((rg) => rg.imageUrls);
+
     const userContent: OpenAI.ChatCompletionContentPart[] = [
-      { type: "text", text: buildUserMessage(propertyName, roomGroups, premium) },
+      {
+        type: "text",
+        text: buildUserMessage(propertyName, roomGroups, elements, duration, premium),
+      },
       ...allImageUrls.map(
         (url): OpenAI.ChatCompletionContentPart => ({
           type: "image_url",
@@ -147,7 +175,6 @@ export async function planWalkthrough(opts: {
         ? parsed.prompt
         : fallback.prompt;
 
-    const elements = buildElements(roomGroups);
     const startImageUrl = roomGroups[0].imageUrls[0];
     const endImageUrl = roomGroups.at(-1)!.imageUrls.at(-1)!;
     const orderedImageUrls = allImageUrls;

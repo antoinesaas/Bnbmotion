@@ -2,16 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Wand2, AlertCircle, Coins, Lock, Clock } from "lucide-react";
+import { Wand2, AlertCircle, Coins, Lock } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { RoomPhotoUploader, type RoomGroup } from "./room-photo-uploader";
 import {
   UPLOAD,
-  FIXED_DURATION,
+  DURATIONS,
+  DURATION_LABELS,
   RESOLUTIONS,
   creditCost,
   canUse4K,
   type Resolution,
+  type Duration,
 } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,15 +33,18 @@ export function NewGenerationForm({
   const [propertyName, setPropertyName] = useState("");
   const [roomGroups, setRoomGroups] = useState<RoomGroup[]>([]);
   const [resolution, setResolution] = useState<Resolution>("1080p");
+  const [duration, setDuration] = useState<Duration>(15);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const has4K = canUse4K(tier);
-  const cost = creditCost(resolution);
+  const cost = creditCost(resolution, duration);
   const enough = credits >= cost;
 
-  const allRoomsValid = roomGroups.length >= UPLOAD.minRooms && roomGroups.every((g) => g.files.length >= UPLOAD.minPhotosPerRoom);
+  const allRoomsValid =
+    roomGroups.length >= UPLOAD.minRooms &&
+    roomGroups.every((g) => g.files.length >= UPLOAD.minPhotosPerRoom);
   const totalPhotos = roomGroups.reduce((s, g) => s + g.files.length, 0);
 
   const canSubmit = enough && propertyName.trim().length > 0 && allRoomsValid && !submitting;
@@ -51,7 +56,7 @@ export function NewGenerationForm({
     if (resolution === "4k" && !has4K) { router.push("/abonnement?from=4k"); return; }
     if (!enough) { router.push("/abonnement?from=credits"); return; }
     if (!allRoomsValid) {
-      setError(`Ajoutez au moins ${UPLOAD.minRooms} pièce(s) avec ${UPLOAD.minPhotosPerRoom} photos chacune.`);
+      setError(`Ajoutez au moins ${UPLOAD.minRooms} pièce avec ${UPLOAD.minPhotosPerRoom} photos minimum.`);
       return;
     }
 
@@ -83,7 +88,12 @@ export function NewGenerationForm({
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ propertyName: propertyName.trim(), roomGroups: apiGroups, resolution }),
+        body: JSON.stringify({
+          propertyName: propertyName.trim(),
+          roomGroups: apiGroups,
+          resolution,
+          duration,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -126,11 +136,29 @@ export function NewGenerationForm({
           </span>
         </Label>
         <div className="mt-2">
-          <RoomPhotoUploader
-            groups={roomGroups}
-            onChange={setRoomGroups}
-            disabled={submitting}
-          />
+          <RoomPhotoUploader groups={roomGroups} onChange={setRoomGroups} disabled={submitting} />
+        </div>
+      </div>
+
+      <div>
+        <Label>Durée de la vidéo</Label>
+        <div className="flex gap-2">
+          {DURATIONS.map((d) => (
+            <button
+              key={d}
+              type="button"
+              disabled={submitting}
+              onClick={() => setDuration(d)}
+              className={cn(
+                "flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition",
+                duration === d
+                  ? "border-coral-400 bg-coral-50 text-coral-700 ring-1 ring-coral-300"
+                  : "border-border bg-white text-ink hover:bg-muted",
+              )}
+            >
+              {DURATION_LABELS[d]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -161,14 +189,10 @@ export function NewGenerationForm({
           })}
         </div>
         {!has4K && (
-          <p className="mt-1 text-xs text-muted-foreground">4K réservée au pack Pro (49,99 €).</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            4K réservée au pack Studio (99,99 €).
+          </p>
         )}
-      </div>
-
-      <div className="flex items-center gap-2 rounded-xl border border-border bg-muted/40 px-4 py-2.5 text-sm text-muted-foreground">
-        <Clock className="h-4 w-4 shrink-0 text-coral-400" />
-        Vidéo cinématographique de{" "}
-        <strong className="text-ink">{FIXED_DURATION} secondes</strong> — Kling 3.0 AI
       </div>
 
       {error && (

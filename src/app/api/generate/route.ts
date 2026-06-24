@@ -6,12 +6,13 @@ import { maybeAutoRefill } from "@/lib/auto-refill";
 import { createSeedanceTask } from "@/lib/seedance";
 import {
   UPLOAD,
-  FIXED_DURATION,
+  DURATIONS,
   KLING_MODE,
   creditCost,
   canUse4K,
   RESOLUTIONS,
   type Resolution,
+  type Duration,
 } from "@/lib/constants";
 
 export const runtime = "nodejs";
@@ -23,10 +24,6 @@ interface RoomGroupBody {
   paths: string[];
 }
 
-/**
- * Lance une génération vidéo Kling 3.0 avec pièces pré-classées par l'utilisateur.
- * Body : { propertyName, roomGroups: [{ room, promptLabel, paths[] }], resolution }
- */
 export async function POST(req: Request) {
   const supabase = createClient();
   const {
@@ -34,7 +31,12 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
 
-  let body: { propertyName?: string; roomGroups?: RoomGroupBody[]; resolution?: string };
+  let body: {
+    propertyName?: string;
+    roomGroups?: RoomGroupBody[];
+    resolution?: string;
+    duration?: number;
+  };
   try {
     body = await req.json();
   } catch {
@@ -46,6 +48,9 @@ export async function POST(req: Request) {
   const resolution = (RESOLUTIONS.includes(body.resolution as Resolution)
     ? body.resolution
     : "1080p") as Resolution;
+  const duration = (DURATIONS.includes(body.duration as Duration)
+    ? body.duration
+    : 15) as Duration;
 
   if (!propertyName) {
     return NextResponse.json({ error: "Le nom de la propriété est requis." }, { status: 400 });
@@ -90,12 +95,12 @@ export async function POST(req: Request) {
 
   if (resolution === "4k" && !canUse4K(profile.tier)) {
     return NextResponse.json(
-      { error: "La 4K est réservée au pack Pro et au-dessus.", code: "need_pro" },
+      { error: "La 4K est réservée au pack Studio (99,99 €).", code: "need_pro" },
       { status: 403 },
     );
   }
 
-  const cost = creditCost(resolution);
+  const cost = creditCost(resolution, duration);
   if (profile.credits_remaining < cost) {
     return NextResponse.json(
       { error: "Crédits insuffisants.", code: "no_credits", needed: cost, balance: profile.credits_remaining },
@@ -103,7 +108,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Signer les URLs pour kie.ai (1 heure)
+  // Signer les URLs pour kie.ai (1h)
   const signedRoomGroups: { room: string; promptLabel: string; imageUrls: string[] }[] = [];
   for (const group of roomGroups) {
     const urls: string[] = [];
@@ -114,17 +119,13 @@ export async function POST(req: Request) {
     if (urls.length < UPLOAD.minPhotosPerRoom) {
       return NextResponse.json({ error: "Impossible de préparer les photos." }, { status: 500 });
     }
-    signedRoomGroups.push({
-      room: group.room,
-      promptLabel: group.promptLabel ?? group.room,
-      imageUrls: urls,
-    });
+    signedRoomGroups.push({ room: group.room, promptLabel: group.promptLabel ?? group.room, imageUrls: urls });
   }
 
-  // GPT-4o-mini : rédige le prompt Kling 3.0 (pièces déjà identifiées par l'utilisateur)
   const plan = await planWalkthrough({
     propertyName,
     roomGroups: signedRoomGroups,
+    duration,
     premium: resolution === "4k",
   });
 
@@ -137,7 +138,7 @@ export async function POST(req: Request) {
       property_name: propertyName,
       photo_paths: allPaths,
       status: "pending",
-      requested_seconds: FIXED_DURATION,
+      requested_seconds: duration,
       resolution,
       aspect_ratio: "16:9",
       credit_cost: cost,
@@ -171,6 +172,7 @@ export async function POST(req: Request) {
       endImageUrl: plan.endImageUrl,
       klingElements: plan.elements.length > 0 ? plan.elements : undefined,
       mode: KLING_MODE[resolution],
+      duration,
       aspectRatio: "16:9",
       callbackUrl,
     });
@@ -184,10 +186,7 @@ export async function POST(req: Request) {
     console.error("createSeedanceTask échoué:", e);
     await admin
       .from("generations")
-      .update({
-        status: "failed",
-        error_message: "Service de génération indisponible. Réessayez.",
-      })
+      .update({ status: "failed", error_message: "Service de génération indisponible. Réessayez." })
       .eq("id", generation.id);
     await admin.rpc("refund_credit", { p_generation_id: generation.id });
     return NextResponse.json(

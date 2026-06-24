@@ -33,6 +33,8 @@ export interface VideoTaskInput {
   /** Jusqu'à 3 groupes de photos de pièces référencées dans le prompt via @name */
   klingElements?: KlingElement[];
   mode: KlingMode;
+  /** Durée en secondes (5, 10 ou 15) — défaut 15 */
+  duration?: number;
   aspectRatio?: "16:9" | "9:16";
   callbackUrl?: string;
 }
@@ -56,7 +58,7 @@ export async function createSeedanceTask(input: VideoTaskInput): Promise<string>
       prompt: input.prompt,
       image_urls: imageUrls,
       sound: false,
-      duration: "15",
+      duration: String(input.duration ?? 15),
       aspect_ratio: input.aspectRatio ?? "16:9",
       mode: input.mode,
       multi_shots: false,

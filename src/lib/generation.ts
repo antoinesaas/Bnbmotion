@@ -1,19 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSeedanceTask } from "@/lib/seedance";
-import { kieCostUsd, type Resolution } from "@/lib/constants";
+import { kieCostUsd, type Resolution, type Duration } from "@/lib/constants";
 
-/**
- * Synchronise une génération avec kie.ai (Kling 3.0).
- * - succès : télécharge la vidéo dans le bucket privé `videos`, calcule le coût réel, passe en `completed`.
- * - échec  : passe en `failed` et rembourse automatiquement les crédits.
- * Idempotent (appelé par le polling client ET le callback kie.ai).
- */
 export async function syncGeneration(generationId: string): Promise<string> {
   const admin = createAdminClient();
 
   const { data: gen } = await admin
     .from("generations")
-    .select("id, user_id, status, external_job_id, resolution")
+    .select("id, user_id, status, external_job_id, resolution, requested_seconds")
     .eq("id", generationId)
     .single();
 
@@ -43,7 +37,10 @@ export async function syncGeneration(generationId: string): Promise<string> {
         return gen.status;
       }
 
-      const cost = kieCostUsd((gen.resolution as Resolution) ?? "1080p");
+      const cost = kieCostUsd(
+        (gen.resolution as Resolution) ?? "1080p",
+        ((gen.requested_seconds as number) ?? 15) as Duration,
+      );
 
       await admin
         .from("generations")

@@ -1,11 +1,8 @@
 /**
  * Constantes produit BnbMotion — modèle pay-as-you-go (crédits).
- * Génération via kie.ai modèle `kling-3.0/video` (15s fixe, 3 résolutions).
+ * Génération via kie.ai modèle `kling-3.0/video`.
  *
- * Tarification (1 000 crédits kie.ai = 4,32 € de coût, marge cible 70% sur pack Essai) :
- *   720p  : 300 crédits kie = 1,30 € coût → 900 crédits BnbMotion (4,50 € en pack Essai)
- *   1080p : 400 crédits kie = 1,73 € coût → 1 200 crédits BnbMotion (6,00 € en pack Essai)
- *   4K    : 1005 crédits kie = 4,34 € coût → 4 000 crédits BnbMotion (20 € en pack Essai)
+ * Coût kie.ai réel : 1 000 crédits kie = 4,32 € — marge cible 70% sur pack Essai.
  */
 
 export const BRAND = {
@@ -18,18 +15,27 @@ export const BRAND = {
 
 export const UPLOAD = {
   minRooms: 1,
-  maxRooms: 3,
+  maxRooms: 6,
   minPhotosPerRoom: 2,
   maxPhotosPerRoom: 4,
-  minPhotos: 2,   // 1 pièce × 2 photos
-  maxPhotos: 12,  // 3 pièces × 4 photos
+  minPhotos: 2,
+  maxPhotos: 24,  // 6 pièces × 4 photos
   maxSizeMB: 10,
   acceptedTypes: ["image/jpeg", "image/png", "image/webp"] as const,
   acceptedExtensions: ".jpg,.jpeg,.png,.webp",
 } as const;
 
-/** Durée fixe des vidéos Kling 3.0 (15 secondes). */
+/** Durée par défaut (secondes). */
 export const FIXED_DURATION = 15;
+
+/** Durées disponibles pour Kling 3.0. */
+export type Duration = 5 | 10 | 15;
+export const DURATIONS: Duration[] = [5, 10, 15];
+export const DURATION_LABELS: Record<Duration, string> = {
+  5: "5 secondes",
+  10: "10 secondes",
+  15: "15 secondes",
+};
 
 export type Resolution = "720p" | "1080p" | "4k";
 export type KlingMode = "std" | "pro" | "4K";
@@ -48,31 +54,38 @@ export const KLING_MODE: Record<Resolution, KlingMode> = {
   "4k": "4K",
 };
 
-/** Coût en crédits BnbMotion par vidéo 15s — marge 70% calculée sur le pack Essai. */
-export const CREDIT_COST: Record<Resolution, number> = {
-  "720p": 900,
-  "1080p": 1200,
-  "4k": 4000,
+/**
+ * Coûts en crédits BnbMotion par résolution × durée (marge 70% sur pack Essai).
+ * Base : kie.ai 4,32 €/1000 crédits · Essai = 0,005 €/crédit.
+ *
+ * Crédits kie.ai réels :
+ *   720p  : 5s≈110  10s=220  15s=300
+ *   1080p : 5s≈150  10s=300  15s=400
+ *   4K    : 5s≈335  10s=670  15s=1005
+ */
+export const CREDIT_COST: Record<Resolution, Record<Duration, number>> = {
+  "720p":  { 5: 350,  10: 650,  15: 900 },
+  "1080p": { 5: 450,  10: 900,  15: 1200 },
+  "4k":    { 5: 1000, 10: 2000, 15: 4000 },
 };
 
-export function creditCost(resolution: Resolution): number {
-  return CREDIT_COST[resolution] ?? 1200;
+export function creditCost(resolution: Resolution, duration: Duration = 15): number {
+  return CREDIT_COST[resolution]?.[duration] ?? 1200;
 }
 
-/** Coût réel kie.ai en EUR — Kling 3.0, 15s, sans audio (base 4,32 €/1000 crédits). */
-export const KIE_COST_EUR: Record<Resolution, number> = {
-  "720p": 1.30,
-  "1080p": 1.73,
-  "4k": 4.34,
+/** Coût réel kie.ai en EUR par résolution × durée. */
+export const KIE_COST_EUR: Record<Resolution, Record<Duration, number>> = {
+  "720p":  { 5: 0.48, 10: 0.95, 15: 1.30 },
+  "1080p": { 5: 0.65, 10: 1.30, 15: 1.73 },
+  "4k":    { 5: 1.45, 10: 2.89, 15: 4.34 },
 };
 
-/** @deprecated Utiliser KIE_COST_EUR */
 export const KIE_COST_USD = KIE_COST_EUR;
-export function kieCostUsd(resolution: Resolution): number {
-  return KIE_COST_EUR[resolution] ?? 1.73;
+export function kieCostUsd(resolution: Resolution, duration: Duration = 15): number {
+  return KIE_COST_EUR[resolution]?.[duration] ?? 1.73;
 }
 
-/** Crédits pour une vidéo 1080p (référence marketing "X vidéos incluses"). */
+/** Crédits pour une vidéo 1080p / 15s (référence marketing). */
 export const CREDITS_PER_STANDARD_VIDEO = 1200;
 export function videosFromCredits(credits: number): number {
   return Math.floor((credits ?? 0) / CREDITS_PER_STANDARD_VIDEO);
@@ -83,11 +96,11 @@ export const CREDITS_VALIDITY_DAYS = 90;
 
 export const DEFAULT_RENDER = {
   resolution: "1080p" as Resolution,
-  duration: FIXED_DURATION,
+  duration: 15 as Duration,
   aspectRatio: "16:9" as const,
 };
 
-/** Niveaux d'achat — la 4K est réservée au pack Pro et au-dessus. */
+/** Niveaux d'achat — la 4K est réservée au pack Studio uniquement. */
 export type Tier = "free" | "mini" | "decouverte" | "pro" | "studio";
 export const TIER_RANK: Record<Tier, number> = {
   free: 0,
@@ -96,11 +109,13 @@ export const TIER_RANK: Record<Tier, number> = {
   pro: 3,
   studio: 4,
 };
+
+/** 4K réservée au pack Studio (99,99 €). */
 export function canUse4K(tier: string | undefined | null): boolean {
-  return (TIER_RANK[(tier as Tier) ?? "free"] ?? 0) >= TIER_RANK.pro;
+  return (TIER_RANK[(tier as Tier) ?? "free"] ?? 0) >= TIER_RANK.studio;
 }
 
-/** Packs de crédits (pay-as-you-go, paiement unique Stripe). */
+/** Packs de crédits pay-as-you-go. */
 export interface CreditPack {
   id: string;
   name: string;
@@ -113,14 +128,11 @@ export interface CreditPack {
 }
 
 /**
- * Packs mis à jour pour refléter les vrais coûts Kling 3.0.
- * Les quantités de crédits sont ajustées pour maintenir ~le même nombre de vidéos.
- *
- * Référence : 1 video 1080p = 1 200 crédits
- *   Essai       5 €  / 1 000 crédits → ~0  vidéo 1080p (pack d'essai 720p uniquement)
- *   Découverte 14,99€ / 4 000 crédits → ~3 vidéos 1080p ou 1 vidéo 4K
- *   Pro        49,99€ /15 000 crédits → ~12 vidéos 1080p ou 3-4 vidéos 4K
- *   Studio     99,99€ /40 000 crédits → ~33 vidéos 1080p ou 10 vidéos 4K
+ * Packs :
+ *   Essai       5 €  /  1 000 crédits → ~0 vidéo 1080p/15s (pack découverte)
+ *   Découverte 14,99€ /  4 000 crédits → ~3 vidéos 1080p/15s ou ~4 vidéos 1080p/10s
+ *   Pro        49,99€ / 15 000 crédits → ~12 vidéos 1080p/15s
+ *   Studio     99,99€ / 50 000 crédits → ~41 vidéos 1080p/15s + accès 4K
  */
 export const CREDIT_PACKS: CreditPack[] = [
   {
@@ -152,7 +164,7 @@ export const CREDIT_PACKS: CreditPack[] = [
   {
     id: "pack_studio",
     name: "Studio",
-    credits: 40000,
+    credits: 50000,
     price: 99.99,
     tier: "studio",
     discountPercent: 25,
@@ -173,7 +185,7 @@ export function originalPrice(pack: CreditPack): number | null {
   return pack.price / (1 - pack.discountPercent / 100);
 }
 
-/** Types de pièces pour l'upload structuré. */
+/** Types de pièces pour l'upload structuré (picker utilisateur). */
 export interface RoomType {
   key: string;
   label: string;
@@ -188,6 +200,7 @@ export const ROOM_TYPES: readonly RoomType[] = [
   { key: "sdb", label: "Salle de bain", promptLabel: "bathroom" },
   { key: "terrasse", label: "Piscine / Terrasse", promptLabel: "pool and terrace" },
   { key: "vue", label: "Vue / Jardin", promptLabel: "garden and outdoor view" },
+  { key: "bureau", label: "Bureau / Dressing", promptLabel: "office or dressing room" },
   { key: "autre", label: "Autre pièce", promptLabel: "additional space" },
 ] as const;
 
