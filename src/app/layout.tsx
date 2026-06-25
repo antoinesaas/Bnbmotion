@@ -35,12 +35,20 @@ export const metadata: Metadata = {
   description:
     "Générez une vidéo promotionnelle cinématographique de votre logement à partir de vos photos, en quelques minutes. Sans vidéaste, sans matériel.",
   keywords: ["airbnb", "vidéo immobilière", "location courte durée", "host", "vidéo logement"],
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: { url: "/icon.png", sizes: "512x512", type: "image/png" },
+  },
   openGraph: {
     title: "BnbMotion — Transformez vos photos en vidéo professionnelle",
     description:
       "La vidéo qui donne envie de réserver votre logement. Générée par IA à partir de vos photos.",
     type: "website",
     locale: "fr_FR",
+    images: [{ url: "/icon.png", width: 512, height: 512 }],
   },
   verification: { google: "cP9j8P23gzfMF1kEfdenhCmUGTsmIqRWnbNzXH8jYRs" },
 };
