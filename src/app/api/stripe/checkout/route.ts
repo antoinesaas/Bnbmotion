@@ -49,15 +49,11 @@ export async function POST(req: Request) {
 
   const meta = { user_id: user.id, pack_id: pack.id, credits: String(pack.credits) };
 
-  const priceId = getPriceId(pack.stripeEnvKey);
-  const keyPrefix = (process.env.STRIPE_SECRET_KEY ?? "").slice(0, 14);
-  console.log(`[checkout] key=${keyPrefix}… price=${priceId}`);
-
   try {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       ...customerParams,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: getPriceId(pack.stripeEnvKey), quantity: 1 }],
       payment_intent_data: { metadata: meta, setup_future_usage: "off_session" },
       metadata: meta,
       invoice_creation: { enabled: true },
@@ -67,9 +63,8 @@ export async function POST(req: Request) {
       locale: "fr",
     });
     return NextResponse.json({ url: session.url });
-  } catch (e: unknown) {
-    const err = e as { type?: string; code?: string; message?: string };
-    console.error(`[checkout] stripe error type=${err.type} code=${err.code} msg=${err.message}`);
+  } catch (e) {
+    console.error("Stripe checkout error:", e);
     return NextResponse.json(
       { error: "Impossible de démarrer le paiement. Vérifiez la configuration des prix." },
       { status: 500 },
