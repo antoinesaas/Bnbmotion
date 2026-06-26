@@ -48,9 +48,8 @@ export const RESOLUTION_LABELS: Record<Resolution, string> = {
   "4k": "4K Ultra HD",
 };
 
-/** Vidéo de démonstration (bucket public Supabase) utilisée sur la landing. */
-export const DEMO_VIDEO_URL =
-  "https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/demo-villa.mp4";
+/** Vidéo de démonstration — servie par Vercel CDN (public/videos/) pour éviter l'egress Supabase. */
+export const DEMO_VIDEO_URL = "/videos/demo-villa.mp4";
 
 /**
  * Temps de génération estimé affiché à l'utilisateur. La durée réelle dépend de
