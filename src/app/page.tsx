@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { PiggyBank, TrendingUp, Megaphone, Star, Check, ArrowRight } from "lucide-react";
+import { PiggyBank, TrendingUp, Megaphone, Star, ArrowRight } from "lucide-react";
 import { SiteHeader } from "@/components/marketing/site-header";
 import { SiteFooter } from "@/components/marketing/site-footer";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { HowItWorks } from "@/components/marketing/how-it-works";
-import { DemoVideo } from "@/components/marketing/demo-video";
+import { Hero } from "@/components/marketing/hero";
 
 const BENEFITS = [
   {
@@ -48,68 +48,7 @@ export default function HomePage() {
       <SiteHeader isAuthed={false} />
 
       {/* HERO */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid opacity-60" />
-        <div className="absolute -right-32 top-0 h-96 w-96 rounded-full bg-coral-200/40 blur-3xl" />
-        <div className="container-page relative grid items-center gap-12 py-16 sm:py-24 lg:grid-cols-2">
-          <div className="animate-fade-up">
-            <span className="inline-flex items-center gap-2 rounded-full border border-coral-200 bg-white px-3 py-1 text-xs font-medium text-coral-700">
-              <Star className="h-3.5 w-3.5 fill-coral-500 text-coral-500" />
-              Vidéo immobilière par IA — pour les hosts qui n&apos;ont pas le temps
-            </span>
-            <h1 className="mt-5 text-balance text-4xl font-bold leading-[1.1] text-ink sm:text-5xl lg:text-6xl">
-              Transformez vos photos en{" "}
-              <span className="text-coral-500">vidéo professionnelle</span> pour votre logement
-            </h1>
-            <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-              Une vidéo cinématographique qui donne envie de réserver, générée par IA à partir de
-              vos photos actuelles. Sans vidéaste, sans matériel, en quelques minutes.
-            </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-coral-500 px-6 font-medium text-white shadow-glow transition hover:bg-coral-600"
-              >
-                Créer ma vidéo offerte <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="#tarifs"
-                className="inline-flex h-12 items-center justify-center rounded-xl border border-border bg-white px-6 font-medium text-ink transition hover:bg-muted"
-              >
-                Voir les tarifs
-              </Link>
-            </div>
-            <p className="mt-4 flex items-center gap-4 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-green-600" /> 1 vidéo offerte
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Check className="h-4 w-4 text-green-600" /> Sans carte bancaire
-              </span>
-            </p>
-          </div>
-
-          {/* Vidéo de démonstration */}
-          <div className="relative animate-fade-up [animation-delay:120ms]">
-            <DemoVideo
-              label="Studio cosy vue mer"
-              className="mx-auto aspect-[4/3] w-full max-w-lg rounded-3xl border border-border shadow-soft"
-            />
-            {/* chips photos -> vidéo */}
-            <div className="absolute -left-4 -top-4 hidden rotate-[-6deg] rounded-xl border border-border bg-white p-2 shadow-soft sm:block">
-              <div className="flex gap-1.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-1.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-2.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="https://gxejkmxzhekscztznsfo.supabase.co/storage/v1/object/public/marketing/hero-photo-3.jpg" className="h-9 w-9 rounded-lg object-cover" alt="" />
-              </div>
-              <p className="mt-1.5 text-center text-[10px] font-medium text-muted-foreground">vos photos</p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <Hero />
 
       {/* COMMENT ÇA MARCHE */}
       <section id="comment" className="border-t border-border bg-white py-20 sm:py-28">
